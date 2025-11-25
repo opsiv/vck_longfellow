@@ -23,5 +23,8 @@ data class VpFormatsSupported(
     /** See [CredentialFormatEnum.MSO_MDOC]. */
     @SerialName("mso_mdoc")
     val msoMdoc: SupportedAlgorithmsContainerIso? = null,
+
+    @SerialName("mso_mdoc_zk")
+    val msoMdocZk: SupportedZkSystemContainerZk? = null,
 )
 

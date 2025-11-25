@@ -294,4 +294,5 @@ class VerifiablePresentationFactory(
         }) {
         CreatePresentationResult.Signed(serialize(), this)
     }
+    
 }

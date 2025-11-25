@@ -148,6 +148,11 @@ sealed class CreatePresentationResult {
          */
         val mdocGeneratedNonce: String?,
     ) : CreatePresentationResult()
+
+    data class ZkProofResponse(
+        val zkProof: at.asitplus.wallet.lib.data.ZkProofResponse,
+        val mdocGeneratedNonce: String?,
+    ): CreatePresentationResult()
 }
 
 @Serializable

@@ -18,7 +18,8 @@ enum class ClaimFormat(val text: String) {
     LDP("ldp"),
     LDP_VC("ldp_vc"),
     LDP_VP("ldp_vp"),
-    MSO_MDOC("mso_mdoc");
+    MSO_MDOC("mso_mdoc"),
+    MSO_MDOC_ZK("mso-mdoc-zk");
 
     companion object {
         fun parse(text: String) = entries.firstOrNull { it.text == text }

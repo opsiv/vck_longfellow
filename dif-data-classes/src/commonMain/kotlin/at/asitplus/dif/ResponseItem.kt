@@ -1,9 +1,9 @@
-package at.asitplus.wallet.lib.longfellow.longfellowzk
+package at.asitplus.dif
 
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class RequestedItem(
+data class ResponseItem(
     val nameSpaceId: String,
     val id: String,
     val cborValue: ByteArray, // TODO: Make this Any and let the serializer take care of it (Keep in mind size constraints from init block)
@@ -33,7 +33,7 @@ data class RequestedItem(
         if (this === other) return true
         if (other == null || this::class != other::class) return false
 
-        other as RequestedItem
+        other as ResponseItem
 
         if (nameSpaceId != other.nameSpaceId) return false
         if (id != other.id) return false
