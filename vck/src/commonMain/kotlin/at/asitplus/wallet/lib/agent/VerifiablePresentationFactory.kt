@@ -133,6 +133,19 @@ class VerifiablePresentationFactory(
         }
     }
 
+    private suspend fun createZkIsoPresentation(
+        request: PresentationRequestParameters,
+        credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>,
+    ): CreatePresentationResult.MdocProof {
+        val (deviceResponse: DeviceResponse, mdocGeneratedNonce: String?) = createIsoPresentation(
+            request = request,
+            credentialAndRequestedClaims = credentialAndRequestedClaims,
+        )
+        // TODO: mdocGeneratedNonce to SessionTranscript
+        // TODO: deviceResponse and SessionTranscript to iso/ModcProof (keep in mind timestamp needs seconds precision -> truncate)
+        TODO()
+    }
+
     private suspend fun createIsoPresentation(
         request: PresentationRequestParameters,
         credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>,

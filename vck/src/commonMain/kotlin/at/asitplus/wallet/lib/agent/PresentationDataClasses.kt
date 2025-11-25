@@ -125,6 +125,10 @@ sealed interface PresentationResponseParameters {
                 coseCompliantSerializer.encodeToByteArray(presentationResult.deviceResponse)
                     .encodeToString(Base64UrlStrict)
             )
+            is CreatePresentationResult.MdocProof -> JsonPrimitive(
+                coseCompliantSerializer.encodeToByteArray(presentationResult.mdocGeneratedNonce)
+                    .encodeToString(Base64UrlStrict)
+            )
         }
     }
 }
@@ -146,6 +150,11 @@ sealed class CreatePresentationResult {
          * has been used to calculate the session transcript, and needs to be set into `apu` of the
          * JWE, see ISO/IEC 18013-7:2024 B.4.3.3.2.
          */
+        val mdocGeneratedNonce: String?,
+    ) : CreatePresentationResult()
+
+    data class MdocProof(
+        val mdocProof: at.asitplus.iso.MdocProof,
         val mdocGeneratedNonce: String?,
     ) : CreatePresentationResult()
 }

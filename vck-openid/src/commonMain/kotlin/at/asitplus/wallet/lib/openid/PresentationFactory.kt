@@ -306,6 +306,7 @@ internal class PresentationFactory(
 
     private fun CreatePresentationResult.toFormat(): ClaimFormat = when (this) {
         is CreatePresentationResult.DeviceResponse -> ClaimFormat.MSO_MDOC
+        is CreatePresentationResult.MdocProof -> ClaimFormat.MSO_MDOC // TODO check if this is correct, cuz at the time of writing i wasnt sure what ClaimFormat even is!! I.e. check if a new claimformat is needed for isomdoc with LF
         is CreatePresentationResult.SdJwt -> ClaimFormat.SD_JWT
         is CreatePresentationResult.Signed -> ClaimFormat.JWT_VP
     }
