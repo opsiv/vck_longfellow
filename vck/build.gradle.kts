@@ -30,6 +30,18 @@ kotlin {
                 commonImplementationAndApiDependencies()
             }
         }
+
+        androidJvmMain.dependencies {
+            implementation("net.java.dev.jna:jna:5.18.1")
+            implementation("net.java.dev.jna:jna-platform:5.18.1")
+        }
+
+        commonTest {
+            dependencies {
+                implementation("at.asitplus.wallet:mobiledrivinglicence:${VcLibVersions.mdl}")
+            }
+        }
+
         jvmTest {
             dependencies {
                 implementation("at.asitplus.signum:indispensable-josef:${VcLibVersions.signum}")
