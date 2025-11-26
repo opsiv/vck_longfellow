@@ -8,6 +8,7 @@ import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.DeviceSigned
 import at.asitplus.iso.Document
 import at.asitplus.iso.IssuerSigned
+import at.asitplus.iso.SessionTranscript
 import at.asitplus.iso.sha256
 import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.jsonpath.core.NormalizedJsonPathSegment
@@ -15,6 +16,7 @@ import at.asitplus.openid.dcql.DCQLClaimsQueryResult
 import at.asitplus.openid.dcql.DCQLCredentialQueryMatchingResult
 import at.asitplus.signum.indispensable.Digest
 import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
+import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.signum.indispensable.josef.JwsSigned
 import at.asitplus.wallet.lib.data.KeyBindingJws
 import at.asitplus.wallet.lib.data.SdJwtConstants.NAME_SD
@@ -31,6 +33,7 @@ import at.asitplus.wallet.lib.jws.SdJwtSigned
 import at.asitplus.wallet.lib.jws.SignJwt
 import at.asitplus.wallet.lib.jws.SignJwtFun
 import io.github.aakira.napier.Napier
+import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -141,7 +144,12 @@ class VerifiablePresentationFactory(
             request = request,
             credentialAndRequestedClaims = credentialAndRequestedClaims,
         )
+
+
         // TODO: mdocGeneratedNonce to SessionTranscript
+        val sessionTranscript: SessionTranscript? = request.calcSessionTranscript()
+        // Check if sessionTranscript empty and error out if so. comapre with what is done if the request.calcIsoDeviceSignaturePlain.invoke() was empty i guess
+
         // TODO: deviceResponse and SessionTranscript to iso/ModcProof (keep in mind timestamp needs seconds precision -> truncate)
         TODO()
     }

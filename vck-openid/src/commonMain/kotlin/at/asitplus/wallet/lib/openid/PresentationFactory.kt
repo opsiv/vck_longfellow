@@ -100,6 +100,29 @@ internal class PresentationFactory(
                     responseWillBeEncrypted = responseWillBeEncrypted
                 )
             },
+            calcSessionTranscript = {
+                val clientId = request.clientId
+                val responseUrl = request.responseUrl ?: request.redirectUrlExtracted
+                if (dcApiRequestCallingOrigin != null) {
+                    calcSessionTranscriptForDcApi(
+                        callingOrigin = dcApiRequestCallingOrigin,
+                        nonce = nonce,
+                        jsonWebKeys = jsonWebKeys,
+                        responseWillBeEncrypted = responseWillBeEncrypted
+                    )
+
+                } else if (clientId != null && responseUrl != null) {
+                    calcSessionTranscript(
+                        clientId = clientId,
+                        responseUrl = responseUrl,
+                        nonce = nonce,
+                        jsonWebKeys = jsonWebKeys,
+                        responseWillBeEncrypted = responseWillBeEncrypted
+                    )
+                } else {
+                    throw IllegalStateException("Neither dcApiRequest nor clientId is set")
+                }
+            },
             mdocGeneratedNonce = mdocGeneratedNonce
         )
 

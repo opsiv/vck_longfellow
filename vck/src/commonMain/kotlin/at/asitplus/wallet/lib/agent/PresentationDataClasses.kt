@@ -3,6 +3,7 @@ package at.asitplus.wallet.lib.agent
 import at.asitplus.dif.ConstraintField
 import at.asitplus.dif.PresentationSubmission
 import at.asitplus.iso.DeviceNameSpaces
+import at.asitplus.iso.SessionTranscript
 import at.asitplus.jsonpath.core.NodeList
 import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.openid.TransactionDataBase64Url
@@ -38,6 +39,9 @@ data class PresentationRequestParameters(
     val nonce: String,
     val audience: String,
     val transactionData: List<TransactionDataBase64Url>? = null,
+
+    val calcSessionTranscript: (() -> SessionTranscript?) = { null },
+
     @Deprecated("Use calcIsoDeviceSignaturePlain instead")
     val calcIsoDeviceSignature: (suspend (docType: String, deviceNameSpaceBytes: ByteStringWrapper<DeviceNameSpaces>) -> Pair<CoseSigned<ByteArray>, String?>?) =
         { _, _ -> null },
