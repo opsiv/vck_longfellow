@@ -37,7 +37,7 @@ data class Circuit (
             Pair(4, "c70b5f44a1365c53847eb8948ad5b4fdc224251a2bc02d958c84c862823c49d6")
         )
 
-        fun forRequestedItems(count: Int): Circuit {
+        fun forResponseItems(count: Int): Circuit {
             val systemName = "longfellow-libzk-v1"
             return Circuit(systemName, countToDefaultCircuitHash.getValue(count))
         }

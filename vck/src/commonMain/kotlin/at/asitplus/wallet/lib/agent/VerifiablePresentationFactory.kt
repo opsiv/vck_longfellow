@@ -2,22 +2,26 @@ package at.asitplus.wallet.lib.agent
 
 import at.asitplus.KmmResult
 import at.asitplus.catching
+import at.asitplus.iso.CborCredentialSerializer
 import at.asitplus.iso.DeviceAuth
 import at.asitplus.iso.DeviceNameSpaces
 import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.DeviceSigned
 import at.asitplus.iso.Document
 import at.asitplus.iso.IssuerSigned
+import at.asitplus.iso.ResponseItem
 import at.asitplus.iso.SessionTranscript
 import at.asitplus.iso.sha256
 import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.jsonpath.core.NormalizedJsonPathSegment
 import at.asitplus.openid.dcql.DCQLClaimsQueryResult
 import at.asitplus.openid.dcql.DCQLCredentialQueryMatchingResult
+import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.Digest
 import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.signum.indispensable.josef.JwsSigned
+import at.asitplus.wallet.lib.cbor.publicKey
 import at.asitplus.wallet.lib.data.KeyBindingJws
 import at.asitplus.wallet.lib.data.SdJwtConstants.NAME_SD
 import at.asitplus.wallet.lib.data.SelectiveDisclosureItem
@@ -32,12 +36,19 @@ import at.asitplus.wallet.lib.jws.JwsHeaderNone
 import at.asitplus.wallet.lib.jws.SdJwtSigned
 import at.asitplus.wallet.lib.jws.SignJwt
 import at.asitplus.wallet.lib.jws.SignJwtFun
+import at.asitplus.wallet.lib.longfellow.AnySerializer
+import at.asitplus.wallet.lib.longfellow.Circuit
+import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeLibrary
+import at.asitplus.wallet.lib.longfellow.truncateToSecond
 import io.github.aakira.napier.Napier
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlin.collections.component1
+import kotlin.collections.component2
 import kotlin.time.Clock
 
 class VerifiablePresentationFactory(
@@ -144,14 +155,64 @@ class VerifiablePresentationFactory(
             request = request,
             credentialAndRequestedClaims = credentialAndRequestedClaims,
         )
+        // TODO: ensure only one doctype and only one namespace exists (LF cant handle more than that)
+        val document: Document = deviceResponse.documents?.single()
+            ?: throw IllegalStateException("No or too many documents found!")
 
+        // TODO: mdocGeneratedNonce to SessionTranscript (i think more or less done)
+        //  Check if sessionTranscript empty and error out if so. comapre with what is done if the request.calcIsoDeviceSignaturePlain.invoke() was empty i guess
+        val sessionTranscript: SessionTranscript = request.calcSessionTranscript()
+            ?: throw IllegalStateException("No Session Transcript found!")
 
-        // TODO: mdocGeneratedNonce to SessionTranscript
-        val sessionTranscript: SessionTranscript? = request.calcSessionTranscript()
-        // Check if sessionTranscript empty and error out if so. comapre with what is done if the request.calcIsoDeviceSignaturePlain.invoke() was empty i guess
+        // TODO: get issuer-pk from somewhere (i think done, but need to reevaluate if there is a better place)
+        val issuerPublicKey: CryptoPublicKey.EC = document
+            .issuerSigned.issuerAuth
+            .unprotectedHeader?.publicKey
+            ?.toCryptoPublicKey()?.getOrNull() as? CryptoPublicKey.EC
+            ?: throw IllegalStateException("No Issuer Public Key found in credential!")
 
         // TODO: deviceResponse and SessionTranscript to iso/ModcProof (keep in mind timestamp needs seconds precision -> truncate)
-        TODO()
+        val now = Clock.System.now().truncateToSecond()
+
+        // TODO: i dont like the current version of anyserializer. i should fix this for sth more generic.
+        //  Longterm, we dont want to serialize here at all yet (cborValue should just be value here)
+        //  but for now it works, so lets keep it for prototyping
+        val attributes: List<ResponseItem> = mutableListOf<ResponseItem>().apply {
+            val issuedNameSpaces = document.issuerSigned.namespaces
+            issuedNameSpaces?.entries?.forEach { (nameSpaceId, issuerSignedList) ->
+                issuerSignedList.entries.forEach { item ->
+                    val id = item.value.elementIdentifier
+                    val serializer = CborCredentialSerializer.lookupSerializer(nameSpaceId, id)
+                        ?: AnySerializer
+                    val cborValue = coseCompliantSerializer.encodeToByteArray(
+                        serializer as KSerializer<Any>,
+                        item.value.elementValue
+                    )
+                    add(ResponseItem(nameSpaceId, id, cborValue))
+                }
+            }
+        }
+        val transcriptBytes = coseCompliantSerializer.encodeToByteArray(sessionTranscript)
+        val droBytes = coseCompliantSerializer.encodeToByteArray(deviceResponse)
+        val circuit = Circuit.forResponseItems(attributes.size)
+        val rawProof = NativeLibrary.generateProof(
+            circuit.raw, droBytes,
+            issuerPublicKey, transcriptBytes, now, attributes,
+            circuit.handle).getOrThrow()
+
+        // TODO: think about what to return. is the mdoc generated nonce enough fpr the verifier to be able to verify?
+        //  Find out how this is done in the standard verification process (non LF) and just do it exactly like that
+
+       return CreatePresentationResult.MdocProof(
+           mdocProof = at.asitplus.iso.MdocProof(
+               proof = rawProof,
+               timestamp = now,
+               attributes = attributes,
+               doctype = document.docType
+           ),
+           mdocGeneratedNonce = mdocGeneratedNonce
+       )
+
     }
 
     private suspend fun createIsoPresentation(

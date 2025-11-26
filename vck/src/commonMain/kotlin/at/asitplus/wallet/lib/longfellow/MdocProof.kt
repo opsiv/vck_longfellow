@@ -3,10 +3,10 @@ package at.asitplus.wallet.lib.longfellow
 import at.asitplus.iso.CborCredentialSerializer
 import at.asitplus.iso.SessionTranscript
 import at.asitplus.signum.indispensable.CryptoPublicKey
-import at.asitplus.wallet.lib.longfellow.longfellowzk.RequestedItem
 import kotlin.time.Instant
 import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.Document
+import at.asitplus.iso.ResponseItem
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeLibrary
 import kotlinx.serialization.KSerializer
@@ -22,7 +22,7 @@ interface MdocProof {
     val issuerPublicKey: CryptoPublicKey.EC
     val timestamp: Instant
     val docType: String
-    val attributes: List<RequestedItem>
+    val attributes: List<ResponseItem>
     val transcript: SessionTranscript
     val rawProof: ByteArray
 
@@ -31,7 +31,7 @@ interface MdocProof {
         val transcript: SessionTranscript,
         val issuerPublicKey: CryptoPublicKey.EC,
         val timestamp: Instant,
-        val attributes: List<RequestedItem>,
+        val attributes: List<ResponseItem>,
         val rawProof: ByteArray,
         val docType: String
     ) {
@@ -91,7 +91,7 @@ interface MdocProof {
         private val document: Document = deviceResponse.documents!!.single()
         override val docType: String = document.docType
 
-        override val attributes: List<RequestedItem> = mutableListOf<RequestedItem>().apply {
+        override val attributes: List<ResponseItem> = mutableListOf<ResponseItem>().apply {
             val issuedNameSpaces = document.issuerSigned.namespaces
             issuedNameSpaces?.entries?.forEach { (nameSpaceId, issuerSignedList) ->
                 issuerSignedList.entries.forEach { item ->
@@ -102,7 +102,7 @@ interface MdocProof {
                         serializer as KSerializer<Any>,
                         item.value.elementValue
                     )
-                    add(RequestedItem(nameSpaceId, id, cborValue))
+                    add(ResponseItem(nameSpaceId, id, cborValue))
                 }
             }
         }
@@ -119,7 +119,7 @@ interface MdocProof {
                 circuit.handle).getOrThrow()
         }
 
-        override val circuit = Circuit.forRequestedItems(attributes.size)
+        override val circuit = Circuit.forResponseItems(attributes.size)
 
         // TODO: https://github.com/google/longfellow-zk/blob/main/docs/content/en/docs/zk-system-spec.md
         // - make proof a data class
