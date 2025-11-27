@@ -130,7 +130,7 @@ sealed interface PresentationResponseParameters {
                     .encodeToString(Base64UrlStrict)
             )
             is CreatePresentationResult.MdocProof -> JsonPrimitive(
-                coseCompliantSerializer.encodeToByteArray(presentationResult.mdocGeneratedNonce)
+                coseCompliantSerializer.encodeToByteArray(presentationResult.mdocProof)
                     .encodeToString(Base64UrlStrict)
             )
         }
