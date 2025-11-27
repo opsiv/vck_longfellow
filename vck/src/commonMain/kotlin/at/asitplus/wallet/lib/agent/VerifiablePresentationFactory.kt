@@ -35,17 +35,14 @@ class VerifiablePresentationFactory(
         SignJwt(keyMaterial, JwsHeaderCertOrJwk()),
     private val signKeyBinding: SignJwtFun<KeyBindingJws> =
         SignJwt(keyMaterial, JwsHeaderNone()),
-    private val isoPresentationStrategySelector: (PresentationRequestParameters) -> IsoPresentationStrategy = {
-        IsoPresentationStrategy.Plain()
-    },
+    private val isoPresentationStrategy: IsoPresentationStrategy = IsoPresentationStrategy.Plain
 ) {
 
     suspend fun createVerifiablePresentationForIsoCredentials(
         request: PresentationRequestParameters,
         credentialAndDisclosedAttributes: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>,
     ): KmmResult<CreatePresentationResult> = catching {
-        val strategy = isoPresentationStrategySelector(request)
-        strategy.createPresentation(
+        isoPresentationStrategy.createPresentation(
             request = request,
             credentialAndRequestedClaims = credentialAndDisclosedAttributes,
         )
@@ -69,8 +66,7 @@ class VerifiablePresentationFactory(
             )
 
             is SubjectCredentialStore.StoreEntry.Iso -> {
-                val strategy = isoPresentationStrategySelector(request)
-                strategy.createPresentation(
+                isoPresentationStrategy.createPresentation(
                     request = request,
                     credentialAndRequestedClaims = mapOf(credential to disclosedAttributes),
                 )
@@ -110,8 +106,7 @@ class VerifiablePresentationFactory(
             )
 
             is SubjectCredentialStore.StoreEntry.Iso -> {
-                val strategy = isoPresentationStrategySelector(request)
-                strategy.createPresentation(
+                isoPresentationStrategy.createPresentation(
                     request = request,
                     credentialAndRequestedClaims = mapOf(credential to disclosedAttributes.toRequestedIsoClaims(credential)),
                 )

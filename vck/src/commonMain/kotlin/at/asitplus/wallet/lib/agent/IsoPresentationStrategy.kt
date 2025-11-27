@@ -30,13 +30,83 @@ import kotlin.time.Clock
  * Strategy interface to allow for multiple possible ISO-Mdoc presentations
  * e.g. Plain presentation vs Longfellow-Zk presentations
  */
-sealed interface IsoPresentationStrategy {
-    suspend fun createPresentation(
+sealed class IsoPresentationStrategy {
+    abstract suspend fun createPresentation(
         request: PresentationRequestParameters,
         credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>,
     ): CreatePresentationResult
 
-    class Plain : IsoPresentationStrategy {
+    protected suspend fun createDeviceResponse(
+        request: PresentationRequestParameters,
+        credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>
+    ): DeviceResponse {
+        val documents = credentialAndRequestedClaims.map { (credential, requestedClaims) ->
+            // allows disclosure of attributes from different namespaces
+            val namespaceToAttributesMap = requestedClaims.mapNotNull { normalizedJsonPath ->
+                // namespace + attribute
+                val firstTwoNameSegments = normalizedJsonPath.segments.filterIndexed { index, _ ->
+                    // TODO: unsure how to deal with attributes with a depth of more than 2
+                    //  revealing the whole attribute for now, which is as fine grained as MDOC can do anyway
+                    index < 2
+                }.filterIsInstance<NormalizedJsonPathSegment.NameSegment>()
+                if (firstTwoNameSegments.size == 2) {
+                    val namespace = firstTwoNameSegments[0].memberName
+                    val attributeName = firstTwoNameSegments[1].memberName
+                    namespace to attributeName
+                } else {
+                    // TODO: Not a namespaced attribute, how to deal with these?
+                    //  treating them as fields that are inherent to the credential for now
+                    //  -> no need for selective disclosure
+                    null
+                }
+            }.groupBy {
+                it.first  // grouping by namespace
+            }.mapValues {
+                // unrolling values to just the list of attribute names for that namespace
+                it.value.map { it.second }
+            }
+            val disclosedItems = namespaceToAttributesMap.mapValues { namespaceToAttributeNamesEntry ->
+                val namespace = namespaceToAttributeNamesEntry.key
+                val attributeNames = namespaceToAttributeNamesEntry.value
+                attributeNames.map { attributeName ->
+                    credential.issuerSigned.namespaces?.get(
+                        namespace
+                    )?.entries?.find {
+                        it.value.elementIdentifier == attributeName
+                    }?.value
+                        ?: throw PresentationException("Attribute not available in credential: $['$namespace']['$attributeName']")
+                }
+            }
+
+            val docType = credential.scheme?.isoDocType ?: credential.issuerSigned.issuerAuth.payload?.docType
+            ?: throw PresentationException("Scheme not known or not registered")
+            val deviceNameSpaceBytes = ByteStringWrapper(DeviceNameSpaces(mapOf()))
+            val input = IsoDeviceSignatureInput(docType, deviceNameSpaceBytes)
+            val deviceSignature = request.calcIsoDeviceSignaturePlain(input)
+                ?: throw PresentationException("calcIsoDeviceSignature not implemented")
+
+            Document(
+                docType = docType,
+                issuerSigned = IssuerSigned.fromIssuerSignedItems(
+                    namespacedItems = disclosedItems,
+                    issuerAuth = credential.issuerSigned.issuerAuth
+                ),
+                deviceSigned = DeviceSigned(
+                    namespaces = deviceNameSpaceBytes,
+                    deviceAuth = DeviceAuth(
+                        deviceSignature = deviceSignature
+                    )
+                )
+            )
+        }
+        return DeviceResponse(
+            version = "1.0",
+            documents = documents.toTypedArray(),
+            status = 0U,
+        )
+    }
+
+    object Plain : IsoPresentationStrategy() {
         override suspend fun createPresentation(
             request: PresentationRequestParameters,
             credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>
@@ -52,11 +122,12 @@ sealed interface IsoPresentationStrategy {
         }
     }
 
-    class LongfellowZk : IsoPresentationStrategy {
+    object LongfellowZk : IsoPresentationStrategy() {
         override suspend fun createPresentation(
             request: PresentationRequestParameters,
             credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>
         ): CreatePresentationResult {
+            Napier.d("createIsoPresentation with $request and $credentialAndRequestedClaims")
             val deviceResponse = createDeviceResponse(
                 request = request,
                 credentialAndRequestedClaims = credentialAndRequestedClaims,
@@ -82,7 +153,7 @@ sealed interface IsoPresentationStrategy {
             val now = Clock.System.now().truncateToSecond()
 
             // TODO: i dont like the current version of anyserializer. i should fix this for sth more generic.
-            //  Longterm, we dont want to serialize here at all yet (cborValue should just be value here)
+            //  Long term, we dont want to serialize here at all yet (cborValue should just be value here)
             //  but for now it works, so lets keep it for prototyping
             val attributes: List<ResponseItem> = mutableListOf<ResponseItem>().apply {
                 val issuedNameSpaces = document.issuerSigned.namespaces
@@ -120,74 +191,4 @@ sealed interface IsoPresentationStrategy {
             )
         }
     }
-}
-
-private suspend fun createDeviceResponse(
-    request: PresentationRequestParameters,
-    credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>
-): DeviceResponse {
-    val documents = credentialAndRequestedClaims.map { (credential, requestedClaims) ->
-        // allows disclosure of attributes from different namespaces
-        val namespaceToAttributesMap = requestedClaims.mapNotNull { normalizedJsonPath ->
-            // namespace + attribute
-            val firstTwoNameSegments = normalizedJsonPath.segments.filterIndexed { index, _ ->
-                // TODO: unsure how to deal with attributes with a depth of more than 2
-                //  revealing the whole attribute for now, which is as fine grained as MDOC can do anyway
-                index < 2
-            }.filterIsInstance<NormalizedJsonPathSegment.NameSegment>()
-            if (firstTwoNameSegments.size == 2) {
-                val namespace = firstTwoNameSegments[0].memberName
-                val attributeName = firstTwoNameSegments[1].memberName
-                namespace to attributeName
-            } else {
-                // TODO: Not a namespaced attribute, how to deal with these?
-                //  treating them as fields that are inherent to the credential for now
-                //  -> no need for selective disclosure
-                null
-            }
-        }.groupBy {
-            it.first  // grouping by namespace
-        }.mapValues {
-            // unrolling values to just the list of attribute names for that namespace
-            it.value.map { it.second }
-        }
-        val disclosedItems = namespaceToAttributesMap.mapValues { namespaceToAttributeNamesEntry ->
-            val namespace = namespaceToAttributeNamesEntry.key
-            val attributeNames = namespaceToAttributeNamesEntry.value
-            attributeNames.map { attributeName ->
-                credential.issuerSigned.namespaces?.get(
-                    namespace
-                )?.entries?.find {
-                    it.value.elementIdentifier == attributeName
-                }?.value
-                    ?: throw PresentationException("Attribute not available in credential: $['$namespace']['$attributeName']")
-            }
-        }
-
-        val docType = credential.scheme?.isoDocType ?: credential.issuerSigned.issuerAuth.payload?.docType
-        ?: throw PresentationException("Scheme not known or not registered")
-        val deviceNameSpaceBytes = ByteStringWrapper(DeviceNameSpaces(mapOf()))
-        val input = IsoDeviceSignatureInput(docType, deviceNameSpaceBytes)
-        val deviceSignature = request.calcIsoDeviceSignaturePlain(input)
-            ?: throw PresentationException("calcIsoDeviceSignature not implemented")
-
-        Document(
-            docType = docType,
-            issuerSigned = IssuerSigned.fromIssuerSignedItems(
-                namespacedItems = disclosedItems,
-                issuerAuth = credential.issuerSigned.issuerAuth
-            ),
-            deviceSigned = DeviceSigned(
-                namespaces = deviceNameSpaceBytes,
-                deviceAuth = DeviceAuth(
-                    deviceSignature = deviceSignature
-                )
-            )
-        )
-    }
-    return DeviceResponse(
-        version = "1.0",
-        documents = documents.toTypedArray(),
-        status = 0U,
-    )
 }
