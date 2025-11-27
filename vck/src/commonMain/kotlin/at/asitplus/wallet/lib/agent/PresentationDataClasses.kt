@@ -157,6 +157,9 @@ sealed class CreatePresentationResult {
         val mdocGeneratedNonce: String?,
     ) : CreatePresentationResult()
 
+    /**
+     * Longfellow version of Presentation Document
+     */
     data class MdocProof(
         val mdocProof: at.asitplus.iso.MdocProof,
         val mdocGeneratedNonce: String?,

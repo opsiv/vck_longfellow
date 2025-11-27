@@ -17,6 +17,8 @@ data class MdocProof(
 
     @SerialName("doctype")
     val doctype: String,
+
+    // TODO: what about the circuit that is in use? it should be specified _somewhere_
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

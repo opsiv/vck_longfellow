@@ -48,4 +48,5 @@ data class ResponseItem(
         result = 31 * result + cborValue.contentHashCode()
         return result
     }
+    // TODO: somewhere else i already wrote that we shouldnt cbor encode here. but can we instead just use IsoMdocResult class?
 }
