@@ -10,6 +10,7 @@ import at.asitplus.iso.IssuerSigned
 import at.asitplus.iso.MdocProof
 import at.asitplus.iso.ResponseItem
 import at.asitplus.iso.SessionTranscript
+import at.asitplus.iso.ValidityInfo
 import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.jsonpath.core.NormalizedJsonPathSegment
 import at.asitplus.signum.indispensable.CryptoPublicKey
@@ -142,6 +143,10 @@ sealed class IsoPresentationStrategy {
             val document: Document = deviceResponse.documents?.singleOrNull()
                 ?: throw IllegalStateException("No or too many documents found!")
 
+            if (!isIso8601Compliant(document.issuerSigned.issuerAuth.payload?.validityInfo))
+                throw IllegalStateException("Timestamps do not follow ISO-8601 (precision to seconds)")
+
+            
             // TODO: mdocGeneratedNonce to SessionTranscript (i think more or less done)
             //  Check if sessionTranscript empty and error out if so. compare with what is done if the request.calcIsoDeviceSignaturePlain.invoke() was empty i guess
             val sessionTranscript: SessionTranscript = request.calcSessionTranscript()
@@ -207,6 +212,14 @@ sealed class IsoPresentationStrategy {
                 ),
                 mdocGeneratedNonce = request.mdocGeneratedNonce
             )
+        }
+
+        private fun isIso8601Compliant(validityInfo: ValidityInfo?): Boolean {
+            return validityInfo?.let{
+                it.validFrom.nanosecondsOfSecond == 0 &&
+                it.validUntil.nanosecondsOfSecond == 0 &&
+                it.signed.nanosecondsOfSecond == 0
+            } ?: false
         }
     }
     companion object {
