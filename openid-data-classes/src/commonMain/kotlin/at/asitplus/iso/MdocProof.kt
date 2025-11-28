@@ -18,7 +18,11 @@ data class MdocProof(
     @SerialName("doctype")
     val doctype: String,
 
-    // TODO: what about the circuit that is in use? it should be specified _somewhere_
+    @SerialName("zk_system")
+    val zkSystem: String,
+
+    @SerialName("circuit_hash")
+    val circuitHash: String,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -30,6 +34,8 @@ data class MdocProof(
         if (timestamp != other.timestamp) return false
         if (attributes != other.attributes) return false
         if (doctype != other.doctype) return false
+        if (zkSystem != other.zkSystem) return false
+        if (circuitHash != other.circuitHash) return false
 
         return true
     }
@@ -39,6 +45,8 @@ data class MdocProof(
         result = 31 * result + timestamp.hashCode()
         result = 31 * result + attributes.hashCode()
         result = 31 * result + doctype.hashCode()
+        result = 31 * result + zkSystem.hashCode()
+        result = 31 * result + circuitHash.hashCode()
         return result
     }
 }

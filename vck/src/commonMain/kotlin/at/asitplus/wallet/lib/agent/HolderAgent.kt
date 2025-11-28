@@ -10,8 +10,13 @@ import at.asitplus.dif.PresentationSubmission
 import at.asitplus.dif.PresentationSubmissionDescriptor
 import at.asitplus.jsonpath.core.NodeList
 import at.asitplus.jsonpath.core.NormalizedJsonPath
+import at.asitplus.openid.dcql.DCQLCredentialQuery
+import at.asitplus.openid.dcql.DCQLCredentialQueryInstance
+import at.asitplus.openid.dcql.DCQLIsoMdocCredentialQuery
+import at.asitplus.openid.dcql.DCQLIsoMdocZkCredentialQuery
 import at.asitplus.openid.dcql.DCQLQuery
 import at.asitplus.openid.dcql.DCQLQueryResult
+import at.asitplus.openid.dcql.DCQLSdJwtCredentialQuery
 import at.asitplus.signum.indispensable.cosef.CoseKey
 import at.asitplus.signum.indispensable.cosef.toCoseKey
 import at.asitplus.signum.indispensable.pki.X509Certificate
@@ -249,15 +254,44 @@ class HolderAgent(
             }
         }
 
-        val verifiablePresentations = credentialSubmissions.mapValues {
+        val verifiablePresentations = credentialSubmissions.mapValues { (queryId, submission) ->
+            val credentialQuery = dcqlQuery.credentials.find { it.id == queryId }
+            val isoPresentationStrategy = selectIsoPresentationStrategyForQuery(credentialQuery, submission.credential)
             verifiablePresentationFactory.createVerifiablePresentation(
                 request = request,
-                credential = it.value.credential,
-                disclosedAttributes = it.value.matchingResult,
+                credential = submission.credential,
+                disclosedAttributes = submission.matchingResult,
+                overrideIsoPresentationStrategy = isoPresentationStrategy,
             ).getOrThrow()
         }
 
+
+
         PresentationResponseParameters.DCQLParameters(verifiablePresentations)
+    }
+
+    private fun selectIsoPresentationStrategyForQuery(
+        credentialQuery: DCQLCredentialQuery?,
+        credential: SubjectCredentialStore.StoreEntry
+    ): IsoPresentationStrategy? {
+        if (credential !is StoreEntry.Iso) return null
+
+        return when (credentialQuery) {
+            is DCQLIsoMdocZkCredentialQuery -> {
+                credentialQuery.meta
+                    .takeIf {it.isZkRequest}
+                    ?.zkSystemType
+                    ?.firstOrNull { it.system == "longfellow-libzk-v1" }// TODO: put this string somewhere else
+                    ?.let { zkSystem ->
+                        IsoPresentationStrategy.LongfellowZk(
+                            zkSystemName = zkSystem.system,
+                            circuitHash = zkSystem.circuitHash
+                        )
+                    }
+            }
+            is DCQLIsoMdocCredentialQuery -> null
+            else -> null
+        }
     }
 
     override suspend fun matchInputDescriptorsAgainstCredentialStore(

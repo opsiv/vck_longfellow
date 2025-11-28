@@ -44,3 +44,7 @@ out/
 repo/
 .run/
 metrics/
+
+### Longfellow binaries ###
+vck/src/androidMain/jniLibs/**/*.so
+vck/src/jvmMain/resources/native/**/*.so

@@ -583,12 +583,14 @@ class OpenId4VpVerifier(
             -> ClaimFormat.SD_JWT
 
         CredentialFormatEnum.MSO_MDOC,
+        CredentialFormatEnum.MSO_MDOC_ZK
             -> ClaimFormat.MSO_MDOC
 
         CredentialFormatEnum.NONE,
         CredentialFormatEnum.JWT_VC_JSON_LD,
         CredentialFormatEnum.JSON_LD,
             -> throw IllegalStateException("Unsupported credential format")
+
     }
 
     private fun List<AuthnResponseResult>.firstOrList(): AuthnResponseResult =

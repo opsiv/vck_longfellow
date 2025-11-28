@@ -7,6 +7,7 @@ import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.DeviceSigned
 import at.asitplus.iso.Document
 import at.asitplus.iso.IssuerSigned
+import at.asitplus.iso.MdocProof
 import at.asitplus.iso.ResponseItem
 import at.asitplus.iso.SessionTranscript
 import at.asitplus.jsonpath.core.NormalizedJsonPath
@@ -122,7 +123,10 @@ sealed class IsoPresentationStrategy {
         }
     }
 
-    object LongfellowZk : IsoPresentationStrategy() {
+    class LongfellowZk(
+        private val zkSystemName: String? = null,
+        private val circuitHash: String? = null,
+    ) : IsoPresentationStrategy() {
         override suspend fun createPresentation(
             request: PresentationRequestParameters,
             credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>
@@ -172,7 +176,16 @@ sealed class IsoPresentationStrategy {
             }
             val transcriptBytes = coseCompliantSerializer.encodeToByteArray(sessionTranscript)
             val droBytes = coseCompliantSerializer.encodeToByteArray(deviceResponse)
-            val circuit = Circuit.forResponseItems(attributes.size)
+
+            val circuit = if (circuitHash != null && zkSystemName != null) {
+                Circuit(
+                    systemName = zkSystemName,
+                    circuitId = circuitHash,
+                )
+            } else {
+                Circuit.forResponseItems(attributes.size)
+            }
+
             val rawProof = NativeLibrary.generateProof(
                 circuit.raw, droBytes,
                 issuerPublicKey, transcriptBytes, now, attributes,
@@ -181,14 +194,19 @@ sealed class IsoPresentationStrategy {
             // TODO: think about what to return. is the mdoc generated nonce enough fpr the verifier to be able to verify?
             //  Find out how this is done in the standard verification process (non LF) and just do it exactly like that
             return CreatePresentationResult.MdocProof(
-                mdocProof = at.asitplus.iso.MdocProof(
+                mdocProof = MdocProof(
                     proof = rawProof,
                     timestamp = now,
                     attributes = attributes,
-                    doctype = document.docType
+                    doctype = document.docType,
+                    zkSystem = circuit.systemName,
+                    circuitHash = circuit.circuitId,
                 ),
                 mdocGeneratedNonce = request.mdocGeneratedNonce
             )
         }
+    }
+    companion object {
+        val Default = Plain
     }
 }

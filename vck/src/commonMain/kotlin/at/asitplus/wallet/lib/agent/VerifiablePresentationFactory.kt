@@ -35,13 +35,13 @@ class VerifiablePresentationFactory(
         SignJwt(keyMaterial, JwsHeaderCertOrJwk()),
     private val signKeyBinding: SignJwtFun<KeyBindingJws> =
         SignJwt(keyMaterial, JwsHeaderNone()),
-    private val isoPresentationStrategy: IsoPresentationStrategy = IsoPresentationStrategy.Plain
 ) {
-
     suspend fun createVerifiablePresentationForIsoCredentials(
         request: PresentationRequestParameters,
         credentialAndDisclosedAttributes: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>,
-    ): KmmResult<CreatePresentationResult> = catching {
+        overrideIsoPresentationStrategy: IsoPresentationStrategy? = null
+        ): KmmResult<CreatePresentationResult> = catching {
+        val isoPresentationStrategy: IsoPresentationStrategy = overrideIsoPresentationStrategy ?: IsoPresentationStrategy.Default
         isoPresentationStrategy.createPresentation(
             request = request,
             credentialAndRequestedClaims = credentialAndDisclosedAttributes,
@@ -52,6 +52,7 @@ class VerifiablePresentationFactory(
         request: PresentationRequestParameters,
         credential: SubjectCredentialStore.StoreEntry,
         disclosedAttributes: Collection<NormalizedJsonPath>,
+        overrideIsoPresentationStrategy: IsoPresentationStrategy? = null
     ): KmmResult<CreatePresentationResult> = catching {
         when (credential) {
             is SubjectCredentialStore.StoreEntry.Vc -> createVcPresentation(
@@ -66,6 +67,7 @@ class VerifiablePresentationFactory(
             )
 
             is SubjectCredentialStore.StoreEntry.Iso -> {
+                val isoPresentationStrategy: IsoPresentationStrategy = overrideIsoPresentationStrategy ?: IsoPresentationStrategy.Default
                 isoPresentationStrategy.createPresentation(
                     request = request,
                     credentialAndRequestedClaims = mapOf(credential to disclosedAttributes),
@@ -78,6 +80,7 @@ class VerifiablePresentationFactory(
         request: PresentationRequestParameters,
         credential: SubjectCredentialStore.StoreEntry,
         disclosedAttributes: DCQLCredentialQueryMatchingResult,
+        overrideIsoPresentationStrategy: IsoPresentationStrategy? = null
     ): KmmResult<CreatePresentationResult> = catching {
         when (credential) {
             is SubjectCredentialStore.StoreEntry.Vc -> if (disclosedAttributes !is DCQLCredentialQueryMatchingResult.AllClaimsMatchingResult) {
@@ -106,6 +109,7 @@ class VerifiablePresentationFactory(
             )
 
             is SubjectCredentialStore.StoreEntry.Iso -> {
+                val isoPresentationStrategy: IsoPresentationStrategy = overrideIsoPresentationStrategy ?: IsoPresentationStrategy.Default
                 isoPresentationStrategy.createPresentation(
                     request = request,
                     credentialAndRequestedClaims = mapOf(credential to disclosedAttributes.toRequestedIsoClaims(credential)),
