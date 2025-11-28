@@ -31,6 +31,7 @@ import at.asitplus.wallet.lib.jws.SignJwt
 import at.asitplus.wallet.lib.jws.SignJwtExt
 import at.asitplus.wallet.lib.jws.SignJwtExtFun
 import at.asitplus.wallet.lib.jws.SignJwtFun
+import at.asitplus.wallet.lib.longfellow.truncateToSecond
 import com.benasher44.uuid.uuid4
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.json.JsonObject
@@ -68,7 +69,7 @@ class IssuerAgent(
         credential: CredentialToBeIssued,
     ): KmmResult<Issuer.IssuedCredential> = catching {
         when (credential) {
-            is CredentialToBeIssued.Iso -> issueMdoc(credential, clock.now())
+            is CredentialToBeIssued.Iso -> issueMdoc(credential, clock.now().truncateToSecond())
             is CredentialToBeIssued.VcJwt -> issueVc(credential, clock.now())
             is CredentialToBeIssued.VcSd -> issueVcSd(credential, clock.now())
         }

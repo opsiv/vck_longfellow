@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class DCQLZkSystemType (
     @SerialName("id")
-    val id: String,
+    val id: String? = null,
 
     @SerialName("system")
     val system: String,
@@ -25,8 +25,8 @@ data class DCQLZkSystemType (
     val version: Int,
 
     @SerialName("block_enc_hash")
-    val blockEncHash: Int,
+    val blockEncHash: Int? = null,
 
     @SerialName("block_enc_sig")
-    val blockEncSig: Int,
+    val blockEncSig: Int? = null,
 )

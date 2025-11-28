@@ -2,6 +2,7 @@ package at.asitplus.wallet.lib.longfellow
 
 import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeLibrary
 import at.asitplus.wallet.lib.longfellow.longfellowzk.ZkSpecHandle
+import io.github.aakira.napier.Napier
 
 data class Circuit (
     val systemName: String,
@@ -21,11 +22,13 @@ data class Circuit (
 
         private fun getHandle(circuit: Circuit): ZkSpecHandle {
             return handleCache.getOrPut(circuit) {
+                Napier.d("Fetching circuit handle")
                 NativeLibrary.findZkSpec(circuit.systemName, circuit.circuitId).getOrThrow()
             }
         }
         private fun getRaw(circuit: Circuit): ByteArray {
             return rawCache.getOrPut(circuit) {
+                Napier.d("Generating circuit")
                 NativeLibrary.generateCircuit(circuit.handle).getOrThrow()
             }
         }

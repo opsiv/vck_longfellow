@@ -138,6 +138,7 @@ sealed class IsoPresentationStrategy {
             )
 
             // TODO: ensure only one doctype and only one **namespace** exists (LF cant handle more than that)
+            // TODO: ensure no document errors, and only once document exists
             val document: Document = deviceResponse.documents?.singleOrNull()
                 ?: throw IllegalStateException("No or too many documents found!")
 
@@ -186,10 +187,12 @@ sealed class IsoPresentationStrategy {
                 Circuit.forResponseItems(attributes.size)
             }
 
+            val circuitHandle = circuit.handle
+            val rawCircuit = circuit.raw
             val rawProof = NativeLibrary.generateProof(
-                circuit.raw, droBytes,
+                rawCircuit, droBytes,
                 issuerPublicKey, transcriptBytes, now, attributes,
-                circuit.handle).getOrThrow()
+                circuitHandle).getOrThrow()
 
             // TODO: think about what to return. is the mdoc generated nonce enough fpr the verifier to be able to verify?
             //  Find out how this is done in the standard verification process (non LF) and just do it exactly like that

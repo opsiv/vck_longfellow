@@ -129,5 +129,5 @@ interface MdocProof {
 }
 
 @OptIn(ExperimentalTime::class)
-internal fun Instant.truncateToSecond(): Instant =
+fun Instant.truncateToSecond(): Instant =
     Instant.fromEpochSeconds(this.epochSeconds)

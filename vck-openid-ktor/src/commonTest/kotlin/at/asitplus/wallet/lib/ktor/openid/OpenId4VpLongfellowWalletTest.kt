@@ -16,9 +16,10 @@ import at.asitplus.openid.dcql.DCQLCredentialQueryList
 import at.asitplus.openid.dcql.DCQLCredentialQueryMatchingResult.ClaimsQueryResults
 import at.asitplus.openid.dcql.DCQLCredentialSubmissionOption
 import at.asitplus.openid.dcql.DCQLIsoMdocClaimsQuery
-import at.asitplus.openid.dcql.DCQLIsoMdocCredentialMetadataAndValidityConstraints
-import at.asitplus.openid.dcql.DCQLIsoMdocCredentialQuery
+import at.asitplus.openid.dcql.DCQLIsoMdocZkCredentialMetadataAndValidityConstraints
+import at.asitplus.openid.dcql.DCQLIsoMdocZkCredentialQuery
 import at.asitplus.openid.dcql.DCQLQuery
+import at.asitplus.openid.dcql.DCQLZkSystemType
 import at.asitplus.signum.indispensable.josef.io.joseCompliantSerializer
 import at.asitplus.wallet.eupid.EuPidScheme
 import at.asitplus.wallet.lib.agent.ClaimToBeIssued
@@ -38,6 +39,7 @@ import at.asitplus.wallet.lib.data.CredentialPresentationRequest.DCQLRequest
 import at.asitplus.wallet.lib.data.SelectiveDisclosureItem
 import at.asitplus.wallet.lib.data.rfc3986.toUri
 import at.asitplus.wallet.lib.extensions.supportedSdAlgorithms
+import at.asitplus.wallet.lib.longfellow.truncateToSecond
 import at.asitplus.wallet.lib.oidvci.OAuth2Exception
 import at.asitplus.wallet.lib.openid.AuthenticationResponseResult
 import at.asitplus.wallet.lib.openid.AuthnResponseResult
@@ -101,18 +103,9 @@ val OpenId4VpLongfellowWalletTest by testSuite {
         scheme: ConstantIndex.CredentialScheme,
         attributes: Map<String, Any>,
     ): CredentialToBeIssued = when (this) {
-        SD_JWT -> CredentialToBeIssued.VcSd(
-            claims = attributes.map { it.toClaimToBeIssued() },
-            expiration = Clock.System.now().plus(1.minutes),
-            scheme = scheme,
-            subjectPublicKey = keyMaterial.publicKey,
-            userInfo = OidcUserInfoExtended.fromOidcUserInfo(OidcUserInfo("subject")).getOrThrow(),
-            sdAlgorithm = supportedSdAlgorithms.random()
-        )
-
         ISO_MDOC -> CredentialToBeIssued.Iso(
             issuerSignedItems = attributes.map { it.toIssuerSignedItem() },
-            expiration = Clock.System.now().plus(1.minutes),
+            expiration = Clock.System.now().plus(5.minutes).truncateToSecond(),
             scheme = scheme,
             subjectPublicKey = keyMaterial.publicKey,
             userInfo = OidcUserInfoExtended.fromOidcUserInfo(OidcUserInfo("subject")).getOrThrow(),
@@ -191,14 +184,12 @@ val OpenId4VpLongfellowWalletTest by testSuite {
         }
     }
 
-    test("DC API") {
+    test("DC API with Longfellow") {
         runBlocking {
             val wallet = setupWallet(HttpClient().engine)
 
             val attributes = mapOf(
-                "family_name" to "XXXMûstérfřău",
-                "given_name" to "XXXĤáčęk Elfriede Hàčêk",
-                "age_over_21" to true
+                "family_name" to "Musterfrau",
             )
 
             val credential = holderAgent.storeMockCredentials(MobileDrivingLicenceScheme, ISO_MDOC, attributes)
@@ -206,11 +197,20 @@ val OpenId4VpLongfellowWalletTest by testSuite {
             val dcqlQuery = DCQLQuery(
                 credentials = DCQLCredentialQueryList(
                     list = nonEmptyListOf(
-                        DCQLIsoMdocCredentialQuery(
+                        DCQLIsoMdocZkCredentialQuery(
                             id = DCQLCredentialQueryIdentifier("cred1"),
-                            format = CredentialFormatEnum.MSO_MDOC,
-                            meta = DCQLIsoMdocCredentialMetadataAndValidityConstraints(
-                                doctypeValue = MobileDrivingLicenceScheme.isoDocType
+                            format = CredentialFormatEnum.MSO_MDOC_ZK,
+                            meta = DCQLIsoMdocZkCredentialMetadataAndValidityConstraints(
+                                doctypeValue = MobileDrivingLicenceScheme.isoDocType,
+                                zkSystemType = listOf(
+                                    DCQLZkSystemType(
+                                        system = "longfellow-libzk-v1",
+                                        circuitHash = "137e5a75ce72735a37c8a72da1a8a0a5df8d13365c2ae3d2c2bd6a0e7197c7c6",
+                                        numAttributes = 1,
+                                        version = 6,
+                                    )
+                                ),
+//                                verifierMessage = "mychallenge" // TODO: check if it works too
                             ),
                             claims = DCQLClaimsQueryList(
                                 list = nonEmptyListOf(
@@ -219,24 +219,6 @@ val OpenId4VpLongfellowWalletTest by testSuite {
                                             nonEmptyListOf(
                                                 NameSegment("org.iso.18013.5.1"),
                                                 NameSegment("family_name")
-                                            )
-                                        ),
-                                    ),
-                                    DCQLIsoMdocClaimsQuery(
-                                        path = DCQLClaimsPathPointer(
-                                            nonEmptyListOf(
-                                                NameSegment("org.iso.18013.5.1"),
-                                                NameSegment("given_name")
-                                            )
-                                        ),
-                                    ),
-                                    DCQLIsoMdocClaimsQuery(
-                                        id = null,
-                                        values = null,
-                                        path = DCQLClaimsPathPointer(
-                                            nonEmptyListOf(
-                                                NameSegment("org.iso.18013.5.1"),
-                                                NameSegment("age_over_21")
                                             )
                                         ),
                                     )
@@ -252,17 +234,7 @@ val OpenId4VpLongfellowWalletTest by testSuite {
                     IsoMdocResult(
                         namespace = "org.iso.18013.5.1",
                         claimName = "family_name",
-                        claimValue = "XXXMûstérfřău"
-                    ),
-                    IsoMdocResult(
-                        namespace = "org.iso.18013.5.1",
-                        claimName = "given_name",
-                        claimValue = "XXXĤáčęk Elfriede Hàčêk"
-                    ),
-                    IsoMdocResult(
-                        namespace = "org.iso.18013.5.1",
-                        claimName = "age_over_21",
-                        claimValue = true
+                        claimValue = "Musterfrau"
                     )
                 )
             )
@@ -298,24 +270,22 @@ val OpenId4VpLongfellowWalletTest by testSuite {
                                          "org.iso.18013.5.1",
                                          "family_name"
                                       ]
-                                   },
-                                   {
-                                      "path" : [
-                                         "org.iso.18013.5.1",
-                                         "given_name"
-                                      ]
-                                   },
-                                   {
-                                      "path" : [
-                                         "org.iso.18013.5.1",
-                                         "age_over_21"
-                                      ]
                                    }
                                 ],
-                                "format" : "mso_mdoc",
+                                "format" : "mso_mdoc_zk",
                                 "id" : "cred1",
                                 "meta" : {
-                                   "doctype_value" : "org.iso.18013.5.1.mDL"
+                                   "doctype_value" : "org.iso.18013.5.1.mDL",
+                                   "zk_system_type" : [
+                                       {
+                                           "system" : "longfellow-libzk-v1",
+                                           "circuit_hash" : "137e5a75ce72735a37c8a72da1a8a0a5df8d13365c2ae3d2c2bd6a0e7197c7c6",
+                                           "num_attributes" : 1,
+                                           "version" : 6,
+                                           "block_enc_hash" : 4025,
+                                           "block_enc_sig" : 2945
+                                       }
+                                   ]
                                 }
                              }
                           ]
@@ -325,6 +295,7 @@ val OpenId4VpLongfellowWalletTest by testSuite {
                        "response_type" : "vp_token"
                     }
                     """.trimIndent()
+            Napier.d(request)
             val dcApiRequest = Oid4vpDCAPIRequest(
                 protocol = Oid4vpDCAPIRequest.PROTOCOL_V1_UNSIGNED,
                 request = request,
@@ -342,6 +313,10 @@ val OpenId4VpLongfellowWalletTest by testSuite {
                 .authenticationResponseResult.shouldBeInstanceOf<AuthenticationResponseResult.DcApi>().apply {
                     params.response shouldContain "vp_token"
                     params.response shouldContain "cred1"
+                    // TODO: verify zkp!!
+                    // TODO: keep in mind that order plays a role
+                    // TODO: keep in mind that issued credentials only work if time is exact to the second and nothing more, same goes for verification timestamp
+                    Napier.d("DC API Longfellow-ZK Response: ${params.response}")
                 }
         }
     }
