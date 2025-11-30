@@ -132,7 +132,8 @@ sealed class IsoPresentationStrategy {
             request: PresentationRequestParameters,
             credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>
         ): CreatePresentationResult {
-            Napier.d("createIsoPresentation with $request and $credentialAndRequestedClaims")
+            Napier.d("createIsoZkPresentation with $request and $credentialAndRequestedClaims")
+
             val deviceResponse = createDeviceResponse(
                 request = request,
                 credentialAndRequestedClaims = credentialAndRequestedClaims,
@@ -143,10 +144,11 @@ sealed class IsoPresentationStrategy {
             val document: Document = deviceResponse.documents?.singleOrNull()
                 ?: throw IllegalStateException("No or too many documents found!")
 
+            // TODO: check inside the proof generation itself? lowerlevel?
             if (!isIso8601Compliant(document.issuerSigned.issuerAuth.payload?.validityInfo))
                 throw IllegalStateException("Timestamps do not follow ISO-8601 (precision to seconds)")
 
-            
+
             // TODO: mdocGeneratedNonce to SessionTranscript (i think more or less done)
             //  Check if sessionTranscript empty and error out if so. compare with what is done if the request.calcIsoDeviceSignaturePlain.invoke() was empty i guess
             val sessionTranscript: SessionTranscript = request.calcSessionTranscript()
@@ -170,13 +172,7 @@ sealed class IsoPresentationStrategy {
                 issuedNameSpaces?.entries?.forEach { (nameSpaceId, issuerSignedList) ->
                     issuerSignedList.entries.forEach { item ->
                         val id = item.value.elementIdentifier
-                        val serializer = CborCredentialSerializer.lookupSerializer(nameSpaceId, id)
-                            ?: AnySerializer
-                        val cborValue = coseCompliantSerializer.encodeToByteArray(
-                            serializer as KSerializer<Any>,
-                            item.value.elementValue
-                        )
-                        add(ResponseItem(nameSpaceId, id, cborValue))
+                        add(ResponseItem(nameSpaceId, id, item.value.elementValue))
                     }
                 }
             }

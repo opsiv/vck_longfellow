@@ -95,14 +95,7 @@ interface MdocProof {
             val issuedNameSpaces = document.issuerSigned.namespaces
             issuedNameSpaces?.entries?.forEach { (nameSpaceId, issuerSignedList) ->
                 issuerSignedList.entries.forEach { item ->
-                    val id = item.value.elementIdentifier
-                    val serializer = CborCredentialSerializer.lookupSerializer(nameSpaceId, id)
-                        ?: AnySerializer
-                    val cborValue = coseCompliantSerializer.encodeToByteArray(
-                        serializer as KSerializer<Any>,
-                        item.value.elementValue
-                    )
-                    add(ResponseItem(nameSpaceId, id, cborValue))
+                    add(ResponseItem(nameSpaceId, item.value.elementIdentifier, item.value.elementValue))
                 }
             }
         }

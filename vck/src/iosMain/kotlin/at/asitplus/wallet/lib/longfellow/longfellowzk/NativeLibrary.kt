@@ -38,9 +38,10 @@ actual object NativeLibrary {
         issuerPublicKey: CryptoPublicKey.EC,
         transcript: ByteArray,
         timestamp: Instant,
-        attributes: List<RequestedItem>,
+        attributes: List<ResponseItem>,
         zkSpec: ZkSpecHandle
     ): KmmResult<ByteArray> {
+        val requestedItems = attributes.map {it.toRequestedItem() }.toTypedArray()
         transcript.usePinned { pinnedTranscript ->
             val transcriptPtr: CPointer<UByteVar> = pinnedTranscript.addressOf(0).reinterpret()
             circuit.usePinned { pinnedCircuit ->
@@ -49,7 +50,7 @@ actual object NativeLibrary {
                     val droPtr: CPointer<UByteVar> = pinnedDro.addressOf(0).reinterpret()
                     val rsult = ScopedNativeBuffer { pointers ->
                         memScoped {
-                            val attrs: CValuesRef<RequestedAttribute>? = convertRequestedAttributes(attributes)
+                            val attrs: CValuesRef<RequestedAttribute>? = convertRequestedAttributes(requestedItems)
                             run_mdoc_prover(
                                 bcp = circuitPtr, bcsz = circuit.size.toULong(),
                                 mdoc = droPtr, mdoc_len = deviceResponseObject.size.toULong(),

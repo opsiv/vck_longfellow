@@ -1,7 +1,12 @@
 package at.asitplus.iso
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlin.time.Instant
 
 @Serializable
@@ -13,6 +18,7 @@ data class MdocProof(
     val timestamp: Instant,
 
     @SerialName("attributes")
+    @Serializable(with = ResponseItemListSerializer::class)
     val attributes: List<ResponseItem>,
 
     @SerialName("doctype")
@@ -50,3 +56,5 @@ data class MdocProof(
         return result
     }
 }
+
+class ResponseItemListSerializer() : KSerializer<List<ResponseItem>> by ListSerializer(ResponseItemSerializer)

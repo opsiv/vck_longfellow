@@ -7,6 +7,18 @@ import at.asitplus.signum.longfellow.src.iosMain.cinterop.RequestedAttribute
 import kotlinx.cinterop.*
 import platform.posix.memcpy
 
+fun ResponseItem.toRequestedItem() : RequestedItem {
+    val serializer = CborCredentialSerializer.lookupSerializer(responseItem.nameSpaceId, responseItem.id)
+        ?: error("serializer not fouind for ${responseItem.id} in namespace ${responseItem.nameSpaceId}")
+
+    @Suppress("UNCHECKED_CAST")
+    val cborValue = coseCompliantSerializer.encodeToByteArray(
+        serializer as KSerializer<Any>,
+        responseItem.value
+    )
+    return RequestedItem(nameSpaceId, id, cborValue)
+}
+
 @OptIn(ExperimentalUnsignedTypes::class, ExperimentalForeignApi::class)
 fun MemScope.convertRequestedAttributes(
     attrs: Array<RequestedItem>
