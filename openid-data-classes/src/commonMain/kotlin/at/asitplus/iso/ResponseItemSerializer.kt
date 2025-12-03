@@ -96,7 +96,17 @@ object  ResponseItemSerializer :
                 when (name) {
                     ResponseItem.PROP_NAMESPACE_ID -> nameSpaceId = decodeStringElement(descriptor, index)
                     ResponseItem.PROP_ID -> id = decodeStringElement(descriptor, index) // TODO: compare with what IssuerSignedItemSerializer (and DeviceSignedItemListSerializer) does
-                    ResponseItem.PROP_VALUE -> value = decodeAnything(index, id, nameSpaceId)
+                    ResponseItem.PROP_VALUE -> {
+                        if (nameSpaceId == null || id == null) {
+                            error("Cannot decode value before namespace and id are known")
+                            // TODO: this is obviously horrible, because it relies on the namespace and elementId being decoded first by chance.
+                            //  In the long run we wanna make this a map like in IssuerSignedItemSerializer and fix this.
+                            //  See IssuerSignedListSerializer.kt:76 (ugly too tho)
+                            //  So the plan is to more or less copy IssuerSignedItem and literally IssuerSignedListSerailizer with all of the horrible things
+                            //  caused by not having some kind of canonicalization
+                        }
+                        value = decodeAnything(index, id, nameSpaceId)
+                    }
                 }
                 if (nameSpaceId != null && id != null && value != null) break
             }

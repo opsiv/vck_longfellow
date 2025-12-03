@@ -1,14 +1,15 @@
 package at.asitplus.wallet.lib.agent
 
-import at.asitplus.iso.CborCredentialSerializer
 import at.asitplus.iso.DeviceAuth
 import at.asitplus.iso.DeviceNameSpaces
 import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.DeviceSigned
+import at.asitplus.iso.DisclosedItem
+import at.asitplus.iso.DisclosedList
 import at.asitplus.iso.Document
 import at.asitplus.iso.IssuerSigned
+import at.asitplus.iso.IssuerSignedList
 import at.asitplus.iso.MdocProof
-import at.asitplus.iso.ResponseItem
 import at.asitplus.iso.SessionTranscript
 import at.asitplus.iso.ValidityInfo
 import at.asitplus.jsonpath.core.NormalizedJsonPath
@@ -17,12 +18,10 @@ import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.wallet.lib.cbor.publicKey
-import at.asitplus.wallet.lib.longfellow.AnySerializer
 import at.asitplus.wallet.lib.longfellow.Circuit
 import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeLibrary
 import at.asitplus.wallet.lib.longfellow.truncateToSecond
 import io.github.aakira.napier.Napier
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.encodeToByteArray
 import kotlin.collections.component1
 import kotlin.collections.component2
@@ -164,18 +163,10 @@ sealed class IsoPresentationStrategy {
             // TODO: check if the precision implementation for the Native API is implemented correctly
             val now = Clock.System.now().truncateToSecond()
 
-            // TODO: i dont like the current version of anyserializer. i should fix this for sth more generic.
-            //  Long term, we dont want to serialize here at all yet (cborValue should just be value here)
-            //  but for now it works, so lets keep it for prototyping
-            val attributes: List<ResponseItem> = mutableListOf<ResponseItem>().apply {
-                val issuedNameSpaces = document.issuerSigned.namespaces
-                issuedNameSpaces?.entries?.forEach { (nameSpaceId, issuerSignedList) ->
-                    issuerSignedList.entries.forEach { item ->
-                        val id = item.value.elementIdentifier
-                        add(ResponseItem(nameSpaceId, id, item.value.elementValue))
-                    }
-                }
-            }
+            val namespaces = document.issuerSigned.namespaces.toDisclosed() ?: emptyMap()
+            val attributeCount = namespaces.values.sumOf { it.entries.size }
+
+
             val transcriptBytes = coseCompliantSerializer.encodeToByteArray(sessionTranscript)
             val droBytes = coseCompliantSerializer.encodeToByteArray(deviceResponse)
 
@@ -185,14 +176,14 @@ sealed class IsoPresentationStrategy {
                     circuitId = circuitHash,
                 )
             } else {
-                Circuit.forResponseItems(attributes.size)
+                Circuit.forResponseItems(attributeCount)
             }
 
             val circuitHandle = circuit.handle
             val rawCircuit = circuit.raw
             val rawProof = NativeLibrary.generateProof(
                 rawCircuit, droBytes,
-                issuerPublicKey, transcriptBytes, now, attributes,
+                issuerPublicKey, transcriptBytes, now, namespaces,
                 circuitHandle).getOrThrow()
 
             // TODO: think about what to return. is the mdoc generated nonce enough fpr the verifier to be able to verify?
@@ -201,7 +192,7 @@ sealed class IsoPresentationStrategy {
                 mdocProof = MdocProof(
                     proof = rawProof,
                     timestamp = now,
-                    attributes = attributes,
+                    namespaces = namespaces,
                     doctype = document.docType,
                     zkSystem = circuit.systemName,
                     circuitHash = circuit.circuitId,
@@ -220,5 +211,20 @@ sealed class IsoPresentationStrategy {
     }
     companion object {
         val Default = Plain
+    }
+}
+
+fun Map<String, IssuerSignedList>?.toDisclosed(): Map<String, DisclosedList>? {
+    return this?.mapValues { (_, issuerList) ->
+        DisclosedList(
+            entries = issuerList.entries.map { entry ->
+                ByteStringWrapper(
+                    DisclosedItem(
+                        elementIdentifier = entry.value.elementIdentifier,
+                        elementValue = entry.value.elementValue
+                    )
+                )
+            }
+        )
     }
 }
