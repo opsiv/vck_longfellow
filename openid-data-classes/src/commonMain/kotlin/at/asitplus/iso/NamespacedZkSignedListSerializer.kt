@@ -8,19 +8,19 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
-object NamespacedDisclosedListSerializer : KSerializer<Map<String, DisclosedList>> {
+object NamespacedZkSignedListSerializer : KSerializer<Map<String, ZkSignedList>> {
     private val mapSerializer = MapSerializer(String.serializer(), object :
-        DisclosedListSerializer("") {})
+        ZkSignedListSerializer("") {})
 
     override val descriptor = mapSerializer.descriptor
-    override fun deserialize(decoder: Decoder): Map<String, DisclosedList> = NamespacedMapEntryDeserializer().let {
+    override fun deserialize(decoder: Decoder): Map<String, ZkSignedList> = NamespacedMapEntryDeserializer().let {
         MapSerializer(it.namespaceSerializer, it.itemSerializer).deserialize(decoder)
     }
 
     class NamespacedMapEntryDeserializer {
         lateinit var key: String
         val namespaceSerializer = NamespaceSerializer()
-        val itemSerializer = DisclosedListSerializer()
+        val itemSerializer = ZkSignedListSerializer()
 
         inner class NamespaceSerializer internal constructor() : KSerializer<String> {
             override val descriptor = PrimitiveSerialDescriptor("ISO namespace", PrimitiveKind.STRING)
@@ -32,18 +32,18 @@ object NamespacedDisclosedListSerializer : KSerializer<Map<String, DisclosedList
             }
         }
 
-        inner class DisclosedListSerializer internal constructor() : KSerializer<DisclosedList> {
+        inner class ZkSignedListSerializer internal constructor() : KSerializer<ZkSignedList> {
             override val descriptor = mapSerializer.descriptor
 
-            override fun deserialize(decoder: Decoder): DisclosedList =
-                decoder.decodeSerializableValue(DisclosedListSerializer(key))
+            override fun deserialize(decoder: Decoder): ZkSignedList =
+                decoder.decodeSerializableValue(ZkSignedListSerializer(key))
 
-            override fun serialize(encoder: Encoder, value: DisclosedList) =
-                encoder.encodeSerializableValue(DisclosedListSerializer(key), value)
+            override fun serialize(encoder: Encoder, value: ZkSignedList) =
+                encoder.encodeSerializableValue(ZkSignedListSerializer(key), value)
         }
     }
 
-    override fun serialize(encoder: Encoder, value: Map<String, DisclosedList>) =
+    override fun serialize(encoder: Encoder, value: Map<String, ZkSignedList>) =
         NamespacedMapEntryDeserializer().let {
             MapSerializer(it.namespaceSerializer, it.itemSerializer).serialize(encoder, value)
         }

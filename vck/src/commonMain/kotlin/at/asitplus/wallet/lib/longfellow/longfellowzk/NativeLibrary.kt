@@ -1,7 +1,7 @@
 package at.asitplus.wallet.lib.longfellow.longfellowzk
 
 import at.asitplus.KmmResult
-import at.asitplus.iso.DisclosedList
+import at.asitplus.iso.ZkSignedList
 import at.asitplus.signum.indispensable.CryptoPublicKey
 import kotlin.time.Instant
 expect object NativeLibrary {
@@ -13,7 +13,7 @@ expect object NativeLibrary {
         issuerPublicKey: CryptoPublicKey.EC,
         transcript: ByteArray,
         timestamp: Instant,
-        attributes: Map<String, DisclosedList>,
+        attributes: Map<String, ZkSignedList>,
         zkSpec: ZkSpecHandle
     ): KmmResult<ByteArray>
 
@@ -21,7 +21,7 @@ expect object NativeLibrary {
         circuit: ByteArray,
         issuerPublicKey: CryptoPublicKey.EC,
         transcript: ByteArray,
-        attributes: Map<String, DisclosedList>,
+        attributes: Map<String, ZkSignedList>,
         timestamp: Instant,
         proof: ByteArray,
         docType: String,

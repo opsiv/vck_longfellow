@@ -1,10 +1,8 @@
 package at.asitplus.iso
 
 import kotlinx.serialization.Contextual
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.ListSerializer
 import kotlin.time.Instant
 
 @Serializable
@@ -16,8 +14,8 @@ data class MdocProof(
     val timestamp: Instant,
 
     @SerialName("nameSpaces")
-    @Serializable(with = NamespacedDisclosedListSerializer::class)
-    val namespaces: Map<String, @Contextual DisclosedList>? = null,
+    @Serializable(with = NamespacedZkSignedListSerializer::class)
+    val namespaces: Map<String, @Contextual ZkSignedList>? = null,
 
     @SerialName("doctype")
     val doctype: String,

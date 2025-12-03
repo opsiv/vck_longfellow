@@ -4,7 +4,7 @@ import at.asitplus.iso.SessionTranscript
 import at.asitplus.signum.indispensable.CryptoPublicKey
 import kotlin.time.Instant
 import at.asitplus.iso.DeviceResponse
-import at.asitplus.iso.DisclosedList
+import at.asitplus.iso.ZkSignedList
 import at.asitplus.iso.Document
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.wallet.lib.agent.toDisclosed
@@ -19,7 +19,7 @@ interface MdocProof {
     val issuerPublicKey: CryptoPublicKey.EC
     val timestamp: Instant
     val docType: String
-    val namespaces: Map<String, DisclosedList>
+    val namespaces: Map<String, ZkSignedList>
     val transcript: SessionTranscript
     val rawProof: ByteArray
 
@@ -28,7 +28,7 @@ interface MdocProof {
         val transcript: SessionTranscript,
         val issuerPublicKey: CryptoPublicKey.EC,
         val timestamp: Instant,
-        val namespaces: Map<String, DisclosedList>,
+        val namespaces: Map<String, ZkSignedList>,
         val rawProof: ByteArray,
         val docType: String
     ) {

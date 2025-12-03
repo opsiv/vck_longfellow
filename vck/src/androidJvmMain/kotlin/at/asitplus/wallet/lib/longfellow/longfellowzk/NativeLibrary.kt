@@ -1,8 +1,7 @@
 package at.asitplus.wallet.lib.longfellow.longfellowzk
 
 import at.asitplus.KmmResult
-import at.asitplus.iso.DisclosedList
-import at.asitplus.iso.ResponseItem
+import at.asitplus.iso.ZkSignedList
 import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.wallet.lib.longfellow.keysAsHexStrings
 import at.asitplus.wallet.lib.longfellow.longfellowzk.jna.JnaLibrary
@@ -33,7 +32,7 @@ actual object NativeLibrary {
         issuerPublicKey: CryptoPublicKey.EC,
         transcript: ByteArray,
         timestamp: Instant,
-        attributes: Map<String, DisclosedList>,
+        attributes: Map<String, ZkSignedList>,
         zkSpec: ZkSpecHandle,
     ): KmmResult<ByteArray> {
         val attributeStructs = attributes.toStructArray()
@@ -57,7 +56,7 @@ actual object NativeLibrary {
         circuit: ByteArray,
         issuerPublicKey: CryptoPublicKey.EC,
         transcript: ByteArray,
-        attributes: Map<String, DisclosedList>,
+        attributes: Map<String, ZkSignedList>,
         timestamp: Instant,
         proof: ByteArray,
         docType: String,

@@ -22,7 +22,7 @@ import net.orandja.obor.data.CborMap
 import net.orandja.obor.data.CborObject
 import net.orandja.obor.data.CborText
 
-open class DisclosedListSerializer(private val namespace: String) : KSerializer<DisclosedList> {
+open class ZkSignedListSerializer(private val namespace: String) : KSerializer<ZkSignedList> {
 
     @OptIn(SealedSerializationApi::class)
     override val descriptor: SerialDescriptor = object : SerialDescriptor {
@@ -37,10 +37,11 @@ open class DisclosedListSerializer(private val namespace: String) : KSerializer<
 
         @ExperimentalSerializationApi
         @OptIn(ExperimentalUnsignedTypes::class)
-        override fun getElementAnnotations(index: Int): List<Annotation> = listOf(ValueTags(24U))
+        override fun getElementAnnotations(index: Int): List<Annotation> = emptyList()
 
         @ExperimentalSerializationApi
-        override fun getElementDescriptor(index: Int): SerialDescriptor = Byte.serializer().descriptor
+        override fun getElementDescriptor(index: Int): SerialDescriptor =
+            ZkSignedItemSerializer(namespace).descriptor
 
         @ExperimentalSerializationApi
         override fun getElementIndex(name: String): Int = name.toInt()
@@ -52,37 +53,34 @@ open class DisclosedListSerializer(private val namespace: String) : KSerializer<
         override fun isElementOptional(index: Int): Boolean = false
     }
 
-    override fun serialize(encoder: Encoder, value: DisclosedList) {
+    override fun serialize(encoder: Encoder, value: ZkSignedList) {
         var index = 0
         encoder.encodeCollection(descriptor, value.entries.size) {
-            value.entries.forEach {
-                encodeSerializableElement(descriptor, index++, ByteArraySerializer(), it.value.serialize(namespace))
+            value.entries.forEach { item ->
+                encodeSerializableElement(
+                    descriptor,
+                    index++,
+                    ZkSignedItemSerializer(namespace),
+                    item
+                )
             }
         }
     }
 
-    private fun DisclosedItem.serialize(namespace: String): ByteArray =
-        coseCompliantSerializer.encodeToByteArray(DisclosedItemSerializer(namespace, elementIdentifier), this)
-
-
-    override fun deserialize(decoder: Decoder): DisclosedList {
-        val entries = mutableListOf<ByteStringWrapper<DisclosedItem>>()
+    override fun deserialize(decoder: Decoder): ZkSignedList {
+        val entries = mutableListOf<ZkSignedItem>()
         decoder.decodeStructure(descriptor) {
             while (true) {
                 val index = decodeElementIndex(descriptor)
-                if (index == CompositeDecoder.DECODE_DONE) {
-                    break
-                }
-                val readBytes = decoder.decodeSerializableValue(ByteArraySerializer())
-                val item = Cbor.decodeFromByteArray<CborObject>(readBytes) as CborMap
-                val elementIdItem = item.first { (it.key as CborText).value == DisclosedItem.PROP_ELEMENT_ID }
-                val elementId = (elementIdItem.value as CborText).value
-                entries += ByteStringWrapper(
-                    coseCompliantSerializer.decodeFromByteArray(DisclosedItemSerializer(namespace, elementId), item.cbor),
-                    item.cbor
+                if (index == CompositeDecoder.DECODE_DONE) break
+                val item = decodeSerializableElement(
+                    descriptor,
+                    index,
+                    ZkSignedItemSerializer(namespace)
                 )
+                entries += item
             }
         }
-        return DisclosedList(entries)
+        return ZkSignedList(entries)
     }
 }

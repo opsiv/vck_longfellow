@@ -1,8 +1,8 @@
 package at.asitplus.wallet.lib.longfellow.longfellowzk.jna
 
 
-import at.asitplus.iso.DisclosedItemSerializer
-import at.asitplus.iso.DisclosedList
+import at.asitplus.iso.ZkSignedItemSerializer
+import at.asitplus.iso.ZkSignedList
 import com.sun.jna.Structure
 
 @Structure.FieldOrder("namespace_id", "id", "cbor_value", "namespace_len", "id_len", "cbor_value_len")
@@ -16,7 +16,7 @@ open class RequestedAttributeStruct : Structure() {
 }
 
 @Suppress("UNCHECKED_CAST")
-internal fun Map<String, DisclosedList>.toStructArray(): Array<RequestedAttributeStruct> {
+internal fun Map<String, ZkSignedList>.toStructArray(): Array<RequestedAttributeStruct> {
     val structs = RequestedAttributeStruct().toArray(
         values.sumOf { it.entries.size }
     ) as Array<RequestedAttributeStruct>
@@ -25,13 +25,13 @@ internal fun Map<String, DisclosedList>.toStructArray(): Array<RequestedAttribut
     entries.forEach { (namespace, disclosedList) ->
         disclosedList.entries.forEach { item ->
             val struct = structIterator.next()
-            val elementIdentifier = item.value.elementIdentifier
-            val elementValue = item.value.elementValue
+            val elementIdentifier = item.elementIdentifier
+            val elementValue = item.elementValue
 
             val namespaceByteString = namespace.toByteArray()
             val elementIdentifierByteString = elementIdentifier.toByteArray()
 
-            val elementValueCbor =  DisclosedItemSerializer.serializeElementValue(namespace, elementValue, elementIdentifier)
+            val elementValueCbor =  ZkSignedItemSerializer.serializeElementValue(namespace, elementValue, elementIdentifier)
 
             namespaceByteString.copyInto(struct.namespace_id)
             struct.namespace_len = namespaceByteString.size.toLong()

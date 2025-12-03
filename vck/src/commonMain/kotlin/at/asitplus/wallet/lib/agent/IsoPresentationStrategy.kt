@@ -4,8 +4,8 @@ import at.asitplus.iso.DeviceAuth
 import at.asitplus.iso.DeviceNameSpaces
 import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.DeviceSigned
-import at.asitplus.iso.DisclosedItem
-import at.asitplus.iso.DisclosedList
+import at.asitplus.iso.ZkSignedItem
+import at.asitplus.iso.ZkSignedList
 import at.asitplus.iso.Document
 import at.asitplus.iso.IssuerSigned
 import at.asitplus.iso.IssuerSignedList
@@ -214,15 +214,13 @@ sealed class IsoPresentationStrategy {
     }
 }
 
-fun Map<String, IssuerSignedList>?.toDisclosed(): Map<String, DisclosedList>? {
+fun Map<String, IssuerSignedList>?.toDisclosed(): Map<String, ZkSignedList>? {
     return this?.mapValues { (_, issuerList) ->
-        DisclosedList(
+        ZkSignedList(
             entries = issuerList.entries.map { entry ->
-                ByteStringWrapper(
-                    DisclosedItem(
-                        elementIdentifier = entry.value.elementIdentifier,
-                        elementValue = entry.value.elementValue
-                    )
+                ZkSignedItem(
+                    elementIdentifier = entry.value.elementIdentifier,
+                    elementValue = entry.value.elementValue
                 )
             }
         )

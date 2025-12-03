@@ -1,7 +1,6 @@
 package at.asitplus.wallet.lib.longfellow
 
-import at.asitplus.iso.DisclosedList
-import at.asitplus.iso.ResponseItem
+import at.asitplus.iso.ZkSignedList
 import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeLibrary
 import kotlin.time.Instant
@@ -11,7 +10,7 @@ class Proof (
     val transcript: ByteArray,
     val issuerPublicKey: CryptoPublicKey.EC, // TODO think about getting it from DRO
     val timestamp: Instant, // TODO think about getting it from DRO
-    val namespaces: Map<String, DisclosedList>,
+    val namespaces: Map<String, ZkSignedList>,
     val zkProof: ByteArray,
     val docType: String // TODO think about getting it from DRO
 ) {
@@ -28,7 +27,7 @@ class Proof (
             transcript: ByteArray,
             issuerPublicKey: CryptoPublicKey.EC,
             timestamp: Instant,
-            namespaces: Map<String, DisclosedList>,
+            namespaces: Map<String, ZkSignedList>,
             deviceResponseObject: ByteArray, // TODO Replace with serializable object
             docType: String,
         ): Proof {
