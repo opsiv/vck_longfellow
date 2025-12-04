@@ -7,9 +7,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ByteArraySerializer
 import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.cbor.ValueTags
-import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
 import kotlinx.serialization.encoding.CompositeDecoder
@@ -18,9 +16,6 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.encoding.decodeStructure
 import kotlinx.serialization.encoding.encodeStructure
-import net.orandja.obor.data.CborMap
-import net.orandja.obor.data.CborObject
-import net.orandja.obor.data.CborText
 import kotlin.time.Instant
 
 open class ZkSignedItemSerializer(private val namespace: String) :
@@ -71,34 +66,32 @@ open class ZkSignedItemSerializer(private val namespace: String) :
         }
 
 
-
     override fun deserialize(decoder: Decoder): ZkSignedItem {
-        // Step 1: read the entire CBOR payload into a DOM object
-        val rawBytes = decoder.decodeSerializableValue(ByteArraySerializer())
-        val map = Cbor.decodeFromByteArray<CborObject>(rawBytes) as CborMap
-
-        // Step 2: extract the identifier
-        val idEntry = map.asMap.entries.firstOrNull { (k, _) ->
-            (k as? CborText)?.value == ZkSignedItem.PROP_ELEMENT_ID
-        } ?: error("Missing elementIdentifier")
-        val elementIdentifier = (idEntry.value as CborText).value
-
-        // Step 3: extract the value
-        val valueEntry = map.asMap.entries.firstOrNull { (k, _) ->
-            (k as? CborText)?.value == ZkSignedItem.PROP_ELEMENT_VALUE
-        } ?: error("Missing elementValue")
-
-        // Step 4: decode the value with the correct serializer
-        val serializer = CborCredentialSerializer.lookupSerializer(namespace, elementIdentifier)
-            ?: error("serializer not found for $elementIdentifier")
-        val elementValue = coseCompliantSerializer.decodeFromByteArray(serializer, valueEntry.value.cbor)
-
+        var elementIdentifier: String? = null
+        var elementValue: Any? = null
+        coseCompliantSerializer
+        decoder.decodeStructure(descriptor) {
+            while (true) {
+                val name = decodeStringElement(descriptor, 0)
+                // Don't call decodeElementIndex, as it would check for tags. this would break decodeAnything
+                val index = descriptor.getElementIndex(name)
+                when (name) {
+                    ZkSignedItem.PROP_ELEMENT_ID -> elementIdentifier = decodeStringElement(descriptor, index)
+                    ZkSignedItem.PROP_ELEMENT_VALUE -> elementValue = decodeAnything(index, elementIdentifier)
+                // This works as long as elementIdentifier is read first. We can't look ahead in the stream
+                // TODO: Write a custom Serializer for ZkDocument with obor, which _can_ look ahead to get the
+                //  identifier (and implicitly the type) from this data structure. Problem: we really need to decode
+                //  the whole cbor-bstr of ZkDocumentData with it. See IssuerSignedListSerializer where each
+                //  IssuerSignedItem is serialized as a cbor-bstr just like ZkDocumentData
+                }
+                if (elementValue != null && elementIdentifier != null) break
+            }
+        }
         return ZkSignedItem(
-            elementIdentifier = elementIdentifier,
+            elementIdentifier = elementIdentifier!!,
             elementValue = elementValue!!
         )
     }
-
 
     private fun CompositeDecoder.decodeAnything(index: Int, elementIdentifier: String?): Any {
         if (namespace.isBlank())

@@ -1,14 +1,9 @@
 package at.asitplus.iso
 
-import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
-import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
+
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SealedSerializationApi
-import kotlinx.serialization.builtins.ByteArraySerializer
-import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.cbor.ValueTags
-import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.SerialKind
 import kotlinx.serialization.descriptors.StructureKind
@@ -17,10 +12,6 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.encoding.decodeStructure
 import kotlinx.serialization.encoding.encodeCollection
-import net.orandja.obor.codec.Cbor
-import net.orandja.obor.data.CborMap
-import net.orandja.obor.data.CborObject
-import net.orandja.obor.data.CborText
 
 open class ZkSignedListSerializer(private val namespace: String) : KSerializer<ZkSignedList> {
 
