@@ -48,7 +48,7 @@ val  PresentationFactoryTest by testSuite {
             joseCompliantSerializer.decodeFromString<JsonWebKey>(it)
         }
 
-        presentationFactory.calcSessionTranscript(
+        presentationFactory.calcSessionTranscriptForOpenId4VP(
             clientId = "x509_san_dns:example.com",
             responseUrl = "https://example.com/response",
             nonce = "exc7gBkxjx1rdc9udRrveKvSsJIq80avlXeLHhGwqtA",

@@ -4,7 +4,6 @@ import at.asitplus.KmmResult
 import at.asitplus.catching
 import at.asitplus.dcapi.DCAPIHandover
 import at.asitplus.dcapi.OpenID4VPDCAPIHandoverInfo
-import at.asitplus.dcapi.request.Oid4vpDCAPIRequest
 import at.asitplus.dif.ClaimFormat
 import at.asitplus.dif.FormatHolder
 import at.asitplus.iso.DeviceAuthentication
@@ -85,44 +84,25 @@ internal class PresentationFactory(
         val mdocGeneratedNonce = if (responseWillBeEncrypted)
             randomSource.nextBytes(16).encodeToString(Base64UrlStrict)
         else ""
+        val sessionTranscript = calcSessionTranscript(
+            clientId = request.clientId,
+            responseUrl = request.responseUrl ?: request.redirectUrlExtracted,
+            nonce = nonce,
+            dcApiRequestCallingOrigin = dcApiRequestCallingOrigin,
+            jsonWebKeys = jsonWebKeys,
+            responseWillBeEncrypted = responseWillBeEncrypted
+        )
         val vpRequestParams = PresentationRequestParameters(
             nonce = nonce,
             audience = audience,
             transactionData = request.transactionData,
             calcIsoDeviceSignaturePlain = {
                 calcDeviceSignature(
-                    clientId = request.clientId,
-                    responseUrl = request.responseUrl ?: request.redirectUrlExtracted,
-                    nonce = nonce,
+                    sessionTranscript = sessionTranscript,
                     docType = it.docType,
-                    dcApiRequestCallingOrigin = dcApiRequestCallingOrigin,
-                    jsonWebKeys = jsonWebKeys,
-                    responseWillBeEncrypted = responseWillBeEncrypted
                 )
             },
-            calcSessionTranscript = {
-                val clientId = request.clientId
-                val responseUrl = request.responseUrl ?: request.redirectUrlExtracted
-                if (dcApiRequestCallingOrigin != null) {
-                    calcSessionTranscriptForDcApi(
-                        callingOrigin = dcApiRequestCallingOrigin,
-                        nonce = nonce,
-                        jsonWebKeys = jsonWebKeys,
-                        responseWillBeEncrypted = responseWillBeEncrypted
-                    )
-
-                } else if (clientId != null && responseUrl != null) {
-                    calcSessionTranscript(
-                        clientId = clientId,
-                        responseUrl = responseUrl,
-                        nonce = nonce,
-                        jsonWebKeys = jsonWebKeys,
-                        responseWillBeEncrypted = responseWillBeEncrypted
-                    )
-                } else {
-                    throw IllegalStateException("Neither dcApiRequest nor clientId is set")
-                }
-            },
+            sessionTranscript = sessionTranscript,
             mdocGeneratedNonce = mdocGeneratedNonce
         )
 
@@ -162,33 +142,9 @@ internal class PresentationFactory(
      */
     @Throws(PresentationException::class, CancellationException::class)
     private suspend fun calcDeviceSignature(
-        clientId: String?,
-        responseUrl: String?,
-        nonce: String,
+        sessionTranscript: SessionTranscript,
         docType: String,
-        dcApiRequestCallingOrigin: String?,
-        jsonWebKeys: Collection<JsonWebKey>?,
-        responseWillBeEncrypted: Boolean,
     ): CoseSigned<ByteArray> {
-        val sessionTranscript: SessionTranscript = if (dcApiRequestCallingOrigin != null) {
-            calcSessionTranscriptForDcApi(
-                callingOrigin = dcApiRequestCallingOrigin,
-                nonce = nonce,
-                jsonWebKeys = jsonWebKeys,
-                responseWillBeEncrypted = responseWillBeEncrypted
-            )
-        } else if (clientId != null && responseUrl != null) {
-            calcSessionTranscript(
-                clientId = clientId,
-                responseUrl = responseUrl,
-                nonce = nonce,
-                jsonWebKeys = jsonWebKeys,
-                responseWillBeEncrypted = responseWillBeEncrypted
-            )
-        } else {
-            throw IllegalStateException("Neither dcApiRequest nor clientId is set")
-        }
-
         val deviceAuthentication = DeviceAuthentication(
             type = DeviceAuthentication.TYPE,
             sessionTranscript = sessionTranscript,
@@ -212,7 +168,39 @@ internal class PresentationFactory(
         }
     }
 
+    /**
+     * Performs calculation of the [SessionTranscript] according to OpenID4VP 1.0
+     */
+    @Throws(PresentationException::class, CancellationException::class)
     internal fun calcSessionTranscript(
+        clientId: String?,
+        responseUrl: String?,
+        nonce: String,
+        dcApiRequestCallingOrigin: String?,
+        jsonWebKeys: Collection<JsonWebKey>?,
+        responseWillBeEncrypted: Boolean
+    ): SessionTranscript {
+        if (dcApiRequestCallingOrigin != null) {
+            return calcSessionTranscriptForDcApi(
+                callingOrigin = dcApiRequestCallingOrigin,
+                nonce = nonce,
+                jsonWebKeys = jsonWebKeys,
+                responseWillBeEncrypted = responseWillBeEncrypted
+            )
+
+        } else if (clientId != null && responseUrl != null) {
+            return calcSessionTranscriptForOpenId4VP(
+                clientId = clientId,
+                responseUrl = responseUrl,
+                nonce = nonce,
+                jsonWebKeys = jsonWebKeys,
+                responseWillBeEncrypted = responseWillBeEncrypted
+            )
+        }
+        throw IllegalStateException("Neither dcApiRequest nor clientId is set")
+    }
+
+    internal fun calcSessionTranscriptForOpenId4VP(
         clientId: String,
         responseUrl: String,
         nonce: String,

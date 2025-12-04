@@ -150,7 +150,7 @@ sealed class IsoPresentationStrategy {
 
             // TODO: mdocGeneratedNonce to SessionTranscript (i think more or less done)
             //  Check if sessionTranscript empty and error out if so. compare with what is done if the request.calcIsoDeviceSignaturePlain.invoke() was empty i guess
-            val sessionTranscript: SessionTranscript = request.calcSessionTranscript()
+            val sessionTranscript: SessionTranscript = request.sessionTranscript
                 ?: throw IllegalStateException("No Session Transcript found!")
 
             // TODO: get issuer-pk from somewhere (i think done, but need to reevaluate if there is a better place)
