@@ -33,12 +33,10 @@ import at.asitplus.wallet.lib.agent.RandomSource
 import at.asitplus.wallet.lib.agent.toStoreCredentialInput
 import at.asitplus.wallet.lib.data.ConstantIndex
 import at.asitplus.wallet.lib.data.ConstantIndex.CredentialRepresentation.ISO_MDOC
-import at.asitplus.wallet.lib.data.ConstantIndex.CredentialRepresentation.SD_JWT
 import at.asitplus.wallet.lib.data.CredentialPresentation.DCQLPresentation
 import at.asitplus.wallet.lib.data.CredentialPresentationRequest.DCQLRequest
 import at.asitplus.wallet.lib.data.SelectiveDisclosureItem
 import at.asitplus.wallet.lib.data.rfc3986.toUri
-import at.asitplus.wallet.lib.extensions.supportedSdAlgorithms
 import at.asitplus.wallet.lib.longfellow.truncateToSecond
 import at.asitplus.wallet.lib.oidvci.OAuth2Exception
 import at.asitplus.wallet.lib.openid.AuthenticationResponseResult
@@ -161,7 +159,7 @@ val OpenId4VpLongfellowWalletTest by testSuite {
         return Triple(wallet, url, mockEngine)
     }
 
-
+    // TODO: update with zk iso query
     test("presentEuPidCredentialIsoQuery") {
         runBlocking {
             val (wallet, url, mockEngine) = setup(
@@ -183,6 +181,7 @@ val OpenId4VpLongfellowWalletTest by testSuite {
             assertPresentation(countdownLatch)
         }
     }
+
 
     test("DC API with Longfellow") {
         runBlocking {

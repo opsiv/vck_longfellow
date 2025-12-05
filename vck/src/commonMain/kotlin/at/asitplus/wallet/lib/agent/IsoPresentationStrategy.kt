@@ -12,6 +12,8 @@ import at.asitplus.iso.IssuerSignedList
 import at.asitplus.iso.MdocProof
 import at.asitplus.iso.SessionTranscript
 import at.asitplus.iso.ValidityInfo
+import at.asitplus.iso.ZkDocument
+import at.asitplus.iso.ZkDocumentData
 import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.jsonpath.core.NormalizedJsonPathSegment
 import at.asitplus.signum.indispensable.CryptoPublicKey
@@ -19,6 +21,7 @@ import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.wallet.lib.cbor.publicKey
 import at.asitplus.wallet.lib.longfellow.Circuit
+import at.asitplus.wallet.lib.longfellow.Proof
 import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeLibrary
 import at.asitplus.wallet.lib.longfellow.truncateToSecond
 import io.github.aakira.napier.Napier
@@ -37,10 +40,10 @@ sealed class IsoPresentationStrategy {
         credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>,
     ): CreatePresentationResult
 
-    protected suspend fun createDeviceResponse(
+    protected suspend fun buildPlainDocuments(
         request: PresentationRequestParameters,
         credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>
-    ): DeviceResponse {
+    ): List<Document> {
         val documents = credentialAndRequestedClaims.map { (credential, requestedClaims) ->
             // allows disclosure of attributes from different namespaces
             val namespaceToAttributesMap = requestedClaims.mapNotNull { normalizedJsonPath ->
@@ -100,11 +103,7 @@ sealed class IsoPresentationStrategy {
                 )
             )
         }
-        return DeviceResponse(
-            version = "1.0",
-            documents = documents.toTypedArray(),
-            status = 0U,
-        )
+        return documents
     }
 
     object Plain : IsoPresentationStrategy() {
@@ -114,9 +113,13 @@ sealed class IsoPresentationStrategy {
         ): CreatePresentationResult {
             Napier.d("createIsoPresentation with $request and $credentialAndRequestedClaims")
             return CreatePresentationResult.DeviceResponse(
-                deviceResponse = createDeviceResponse(
-                    request = request,
-                    credentialAndRequestedClaims = credentialAndRequestedClaims,
+                DeviceResponse(
+                    version = "1.0",
+                    documents = buildPlainDocuments(
+                        request = request,
+                        credentialAndRequestedClaims = credentialAndRequestedClaims,
+                    ).toTypedArray(),
+                    status = 0U,
                 ),
                 mdocGeneratedNonce = request.mdocGeneratedNonce
             )
@@ -124,88 +127,120 @@ sealed class IsoPresentationStrategy {
     }
 
     class LongfellowZk(
+        // TODO: change this to List<ZkSystemSpac> and use best fit
+        //  See: https://github.com/google/longfellow-zk/blob/69400748daedab509b1c05b771b41c1911fca381/docs/content/en/docs/zk-system-spec.md
         private val zkSystemName: String? = null,
         private val circuitHash: String? = null,
-    ) : IsoPresentationStrategy() {
+    ) : IsoPresentationStrategy(){
+
+        // instead of creating a DeviceResponse over multiple documents, we first need to create a DeviceResponse
+        // for _each_ document. Then with each of these presentations we can assemble a zero knowledge proof ff it
+        // satisfies the queries allowed circuit(s) and from that we can then assemble a single DeviceResposne that
+        // just puts each of these proofs into zkDocuments and return this single DeviceResposne
+        // This is an all-or-nothing approach for now. every document will be converted into a zkp version
+        // TODO: change all-or-nothing approach in future revision
+
         override suspend fun createPresentation(
             request: PresentationRequestParameters,
             credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>
         ): CreatePresentationResult {
-            Napier.d("createIsoZkPresentation with $request and $credentialAndRequestedClaims")
-
-            val deviceResponse = createDeviceResponse(
-                request = request,
-                credentialAndRequestedClaims = credentialAndRequestedClaims,
+            val sessionTranscriptBytes = coseCompliantSerializer.encodeToByteArray(
+                request.sessionTranscript
+                    ?: throw IllegalStateException("No Session Transcript found!")
             )
 
-            // TODO: ensure only one doctype and only one **namespace** exists (LF cant handle more than that)
-            // TODO: ensure no document errors, and only once document exists
-            val document: Document = deviceResponse.documents?.singleOrNull()
-                ?: throw IllegalStateException("No or too many documents found!")
-
-            // TODO: check inside the proof generation itself? lowerlevel?
-            if (!isIso8601Compliant(document.issuerSigned.issuerAuth.payload?.validityInfo))
-                throw IllegalStateException("Timestamps do not follow ISO-8601 (precision to seconds)")
-
-
-            // TODO: mdocGeneratedNonce to SessionTranscript (i think more or less done)
-            //  Check if sessionTranscript empty and error out if so. compare with what is done if the request.calcIsoDeviceSignaturePlain.invoke() was empty i guess
-            val sessionTranscript: SessionTranscript = request.sessionTranscript
-                ?: throw IllegalStateException("No Session Transcript found!")
-
-            // TODO: get issuer-pk from somewhere (i think done, but need to reevaluate if there is a better place)
-            val issuerPublicKey: CryptoPublicKey.EC = document
-                .issuerSigned.issuerAuth
-                .unprotectedHeader?.publicKey
-                ?.toCryptoPublicKey()?.getOrNull() as? CryptoPublicKey.EC
-                ?: throw IllegalStateException("No Issuer Public Key found in credential!")
-
-            // TODO: check if the precision implementation for the Native API is implemented correctly
             val now = Clock.System.now().truncateToSecond()
-
-            val namespaces = document.issuerSigned.namespaces.toDisclosed() ?: emptyMap()
-            val attributeCount = namespaces.values.sumOf { it.entries.size }
-
-
-            val transcriptBytes = coseCompliantSerializer.encodeToByteArray(sessionTranscript)
-            val droBytes = coseCompliantSerializer.encodeToByteArray(deviceResponse)
-
-            val circuit = if (circuitHash != null && zkSystemName != null) {
-                Circuit(
-                    systemName = zkSystemName,
-                    circuitId = circuitHash,
+            
+            val deviceResponses: List<DeviceResponse> = buildPlainDocuments(
+                request = request,
+                credentialAndRequestedClaims = credentialAndRequestedClaims,
+            ).map { document ->
+                DeviceResponse(
+                    version = "1.0",
+                    documents = arrayOf(document),
+                    status = 0U,
                 )
-            } else {
-                Circuit.forResponseItems(attributeCount)
             }
+            // Now we already have 1 device response per document. They should each share the same sessionTranscript,
+            // so we can just assemble the session transcript once and then iterate over the list of deviceResponses
+            // and then create a zkps. after we have all of them, we create a _single_ new Document and just put the
+            // derived proofs in to its zkDocuments. We send that single Document back to the requester
 
-            val circuitHandle = circuit.handle
-            val rawCircuit = circuit.raw
-            val rawProof = NativeLibrary.generateProof(
-                rawCircuit, droBytes,
-                issuerPublicKey, transcriptBytes, now, namespaces,
-                circuitHandle).getOrThrow()
+            val zkDocuments = deviceResponses.map { deviceResponse ->
+                val document = deviceResponse.documents?.singleOrNull()
+                    ?: throw IllegalStateException("No or too many documents found!")
 
-            // TODO: think about what to return. is the mdoc generated nonce enough fpr the verifier to be able to verify?
-            //  Find out how this is done in the standard verification process (non LF) and just do it exactly like that
-            return CreatePresentationResult.MdocProof(
-                mdocProof = MdocProof(
-                    proof = rawProof,
+                if (!isIso8601Compliant(document.issuerSigned.issuerAuth.payload?.validityInfo))
+                    throw IllegalStateException("Timestamps do not follow ISO-8601 (precision to seconds)")
+
+                val issuerPublicKey: CryptoPublicKey.EC = document
+                    .issuerSigned.issuerAuth
+                    .unprotectedHeader?.publicKey
+                    ?.toCryptoPublicKey()?.getOrNull() as? CryptoPublicKey.EC
+                    ?: throw IllegalStateException("No Issuer Public Key found in credential!")
+
+                // TODO: check if the precision implementation for the Native API is implemented correctly
+                
+
+                val namespaces = document.issuerSigned.namespaces.toDisclosed() ?: emptyMap()
+                val doctype = document.docType
+                val attributeCount = namespaces.values.sumOf { it.entries.size }
+                val droBytes = coseCompliantSerializer.encodeToByteArray(deviceResponse)
+
+                val msoX5Chain = document.issuerSigned.issuerAuth.protectedHeader.certificateChain
+
+                val circuit = if (circuitHash != null && zkSystemName != null) {
+                    Circuit(
+                        systemName = zkSystemName,
+                        circuitId = circuitHash,
+                    )
+                } else {
+                    Circuit.forResponseItems(attributeCount)
+                }
+
+                val proof = Proof.generate(
+                    circuit = circuit,
+                    transcript = sessionTranscriptBytes,
+                    issuerPublicKey = issuerPublicKey,
                     timestamp = now,
                     namespaces = namespaces,
-                    doctype = document.docType,
-                    zkSystem = circuit.systemName,
-                    circuitHash = circuit.circuitId,
+                    deviceResponseObject = droBytes,
+                    docType = doctype
+                )
+                
+                ZkDocument(
+                    zkDocumentDataBytes = ByteStringWrapper(
+                        ZkDocumentData(
+                            docType = proof.docType,
+                            zkSystemId = proof.circuit.circuitId,
+                            timestamp = proof.timestamp,
+                            issuerSigned = namespaces,
+                            // TODO: maybe adjust deviceSigned, since it might affect the sessionTranscript if deviceNameSpaces is non-empty in the original doc
+                            deviceSigned = emptyMap(),
+                            certificateChain = msoX5Chain
+                        )
+                    ),
+                    proof = proof.zkProof,
+                )
+                // TODO there needs to be a try-catch thing to handle documentErrors (and add them to document errors)
+            }
+
+            return CreatePresentationResult.DeviceResponse(
+                deviceResponse = DeviceResponse(
+                    version = "1.0",
+                    zkDocuments = zkDocuments.toTypedArray(),
+                    status = 0U,
                 ),
                 mdocGeneratedNonce = request.mdocGeneratedNonce
             )
+
         }
 
         private fun isIso8601Compliant(validityInfo: ValidityInfo?): Boolean {
             return validityInfo?.let{
                 it.validFrom.nanosecondsOfSecond == 0 &&
-                it.validUntil.nanosecondsOfSecond == 0 &&
-                it.signed.nanosecondsOfSecond == 0
+                        it.validUntil.nanosecondsOfSecond == 0 &&
+                        it.signed.nanosecondsOfSecond == 0
             } ?: false
         }
     }
