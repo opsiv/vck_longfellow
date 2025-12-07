@@ -1,5 +1,6 @@
 package at.asitplus.wallet.lib.agent
 
+import at.asitplus.data.NonEmptyList
 import at.asitplus.iso.DeviceAuth
 import at.asitplus.iso.DeviceNameSpaces
 import at.asitplus.iso.DeviceResponse
@@ -9,20 +10,18 @@ import at.asitplus.iso.ZkSignedList
 import at.asitplus.iso.Document
 import at.asitplus.iso.IssuerSigned
 import at.asitplus.iso.IssuerSignedList
-import at.asitplus.iso.MdocProof
-import at.asitplus.iso.SessionTranscript
 import at.asitplus.iso.ValidityInfo
 import at.asitplus.iso.ZkDocument
 import at.asitplus.iso.ZkDocumentData
 import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.jsonpath.core.NormalizedJsonPathSegment
+import at.asitplus.openid.dcql.DCQLZkSystemType
 import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.wallet.lib.cbor.publicKey
 import at.asitplus.wallet.lib.longfellow.Circuit
 import at.asitplus.wallet.lib.longfellow.Proof
-import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeLibrary
 import at.asitplus.wallet.lib.longfellow.truncateToSecond
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.encodeToByteArray
@@ -126,11 +125,10 @@ sealed class IsoPresentationStrategy {
         }
     }
 
-    class LongfellowZk(
+    class ZeroKnowledge(
         // TODO: change this to List<ZkSystemSpac> and use best fit
         //  See: https://github.com/google/longfellow-zk/blob/69400748daedab509b1c05b771b41c1911fca381/docs/content/en/docs/zk-system-spec.md
-        private val zkSystemName: String? = null,
-        private val circuitHash: String? = null,
+        val zkSystemTypes: NonEmptyList<DCQLZkSystemType>
     ) : IsoPresentationStrategy(){
 
         // instead of creating a DeviceResponse over multiple documents, we first need to create a DeviceResponse
@@ -173,14 +171,12 @@ sealed class IsoPresentationStrategy {
                 if (!isIso8601Compliant(document.issuerSigned.issuerAuth.payload?.validityInfo))
                     throw IllegalStateException("Timestamps do not follow ISO-8601 (precision to seconds)")
 
+                // TODO: maybe use something from certificate chain instead?
                 val issuerPublicKey: CryptoPublicKey.EC = document
                     .issuerSigned.issuerAuth
                     .unprotectedHeader?.publicKey
                     ?.toCryptoPublicKey()?.getOrNull() as? CryptoPublicKey.EC
                     ?: throw IllegalStateException("No Issuer Public Key found in credential!")
-
-                // TODO: check if the precision implementation for the Native API is implemented correctly
-                
 
                 val namespaces = document.issuerSigned.namespaces.toDisclosed() ?: emptyMap()
                 val doctype = document.docType
@@ -189,14 +185,21 @@ sealed class IsoPresentationStrategy {
 
                 val msoX5Chain = document.issuerSigned.issuerAuth.protectedHeader.certificateChain
 
-                val circuit = if (circuitHash != null && zkSystemName != null) {
-                    Circuit(
-                        systemName = zkSystemName,
-                        circuitId = circuitHash,
-                    )
-                } else {
-                    Circuit.forResponseItems(attributeCount)
-                }
+                // TODO: replace these two!
+                val maxVersion: Int? = null
+                val minVersion: Int? = 4
+
+                val zkSystemType = zkSystemTypes.filter { it.system == "longfellow-libzk-v1" }
+                    .filter { it.numAttributes == attributeCount }
+                    .filter {minVersion == null || it.version >= minVersion}
+                    .filter {maxVersion == null || it.version <= maxVersion}
+                    .maxByOrNull { it.version }
+                    ?:  throw IllegalStateException("No matching supported zkSystemType!")
+
+                val circuit = Circuit(
+                    zkSystemType.system,
+                    zkSystemType.circuitHash
+                )
 
                 val proof = Proof.generate(
                     circuit = circuit,

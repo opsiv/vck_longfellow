@@ -2,6 +2,7 @@ package at.asitplus.openid.dcql
 
 import at.asitplus.KmmResult
 import at.asitplus.catching
+import at.asitplus.data.NonEmptyList
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -16,7 +17,7 @@ data class DCQLIsoMdocZkCredentialMetadataAndValidityConstraints(
     val doctypeValue: String,
 
     @SerialName(SerialNames.ZK_SYSTEM_TYPE)
-    val zkSystemType: List<DCQLZkSystemType>? = null,
+    val zkSystemType: NonEmptyList<DCQLZkSystemType>,
 
     @SerialName(SerialNames.VERIFIER_MESSAGE)
     val verifierMessage: String? = null,
@@ -31,6 +32,4 @@ data class DCQLIsoMdocZkCredentialMetadataAndValidityConstraints(
         if (actualDoctypeValue != doctypeValue)
             throw IllegalStateException("Unsupported credential format")
     }
-
-    val isZkRequest: Boolean get() = !zkSystemType.isNullOrEmpty()
 }

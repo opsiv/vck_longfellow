@@ -1,5 +1,6 @@
 package at.asitplus.wallet.lib.ktor.openid
 
+import at.asitplus.data.NonEmptyList
 import at.asitplus.data.NonEmptyList.Companion.nonEmptyListOf
 import at.asitplus.dcapi.request.Oid4vpDCAPIRequest
 import at.asitplus.iso.IssuerSignedItem
@@ -201,7 +202,7 @@ val OpenId4VpLongfellowWalletTest by testSuite {
                             format = CredentialFormatEnum.MSO_MDOC_ZK,
                             meta = DCQLIsoMdocZkCredentialMetadataAndValidityConstraints(
                                 doctypeValue = MobileDrivingLicenceScheme.isoDocType,
-                                zkSystemType = listOf(
+                                zkSystemType = nonEmptyListOf(
                                     DCQLZkSystemType(
                                         system = "longfellow-libzk-v1",
                                         circuitHash = "137e5a75ce72735a37c8a72da1a8a0a5df8d13365c2ae3d2c2bd6a0e7197c7c6",

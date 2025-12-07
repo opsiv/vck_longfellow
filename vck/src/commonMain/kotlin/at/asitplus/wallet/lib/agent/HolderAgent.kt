@@ -11,12 +11,10 @@ import at.asitplus.dif.PresentationSubmissionDescriptor
 import at.asitplus.jsonpath.core.NodeList
 import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.openid.dcql.DCQLCredentialQuery
-import at.asitplus.openid.dcql.DCQLCredentialQueryInstance
 import at.asitplus.openid.dcql.DCQLIsoMdocCredentialQuery
 import at.asitplus.openid.dcql.DCQLIsoMdocZkCredentialQuery
 import at.asitplus.openid.dcql.DCQLQuery
 import at.asitplus.openid.dcql.DCQLQueryResult
-import at.asitplus.openid.dcql.DCQLSdJwtCredentialQuery
 import at.asitplus.signum.indispensable.cosef.CoseKey
 import at.asitplus.signum.indispensable.cosef.toCoseKey
 import at.asitplus.signum.indispensable.pki.X509Certificate
@@ -277,19 +275,10 @@ class HolderAgent(
         if (credential !is StoreEntry.Iso) return null
 
         return when (credentialQuery) {
-            is DCQLIsoMdocZkCredentialQuery -> {
-                credentialQuery.meta
-                    .takeIf {it.isZkRequest}
-                    ?.zkSystemType
-                    ?.firstOrNull { it.system == "longfellow-libzk-v1" }// TODO: put this string somewhere else
-                    ?.let { zkSystem ->
-                        IsoPresentationStrategy.LongfellowZk(
-                            zkSystemName = zkSystem.system,
-                            circuitHash = zkSystem.circuitHash
-                        )
-                    }
-            }
-            is DCQLIsoMdocCredentialQuery -> null
+            is DCQLIsoMdocZkCredentialQuery -> IsoPresentationStrategy.ZeroKnowledge(
+                zkSystemTypes = credentialQuery.meta.zkSystemType
+            )
+            is DCQLIsoMdocCredentialQuery -> IsoPresentationStrategy.Default
             else -> null
         }
     }
