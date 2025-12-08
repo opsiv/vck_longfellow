@@ -37,8 +37,7 @@ object IsoPresentation {
         credentialQuery: DCQLCredentialQuery? = null,
         // TODO: replace DCQLCredentialQuery with an interface containing a list and a boolean to enforce ZK or not
     ): CreatePresentationResult {
-        val isoCredentialQuery = credentialQuery as DCQLIsoMdocCredentialQuery
-         when(isoCredentialQuery.format) {
+         when(credentialQuery?.format) {
              // TODO: MSO_MDOC should also be able to do zk, but lets solve it via the interface, if the list is nonempty
             CredentialFormatEnum.MSO_MDOC_ZK -> return createLFZKPresentation(
                 request = request,
