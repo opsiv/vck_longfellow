@@ -17,8 +17,8 @@ import at.asitplus.openid.dcql.DCQLCredentialQueryList
 import at.asitplus.openid.dcql.DCQLCredentialQueryMatchingResult.ClaimsQueryResults
 import at.asitplus.openid.dcql.DCQLCredentialSubmissionOption
 import at.asitplus.openid.dcql.DCQLIsoMdocClaimsQuery
-import at.asitplus.openid.dcql.DCQLIsoMdocZkCredentialMetadataAndValidityConstraints
-import at.asitplus.openid.dcql.DCQLIsoMdocZkCredentialQuery
+import at.asitplus.openid.dcql.DCQLIsoMdocCredentialMetadataAndValidityConstraints
+import at.asitplus.openid.dcql.DCQLIsoMdocCredentialQuery
 import at.asitplus.openid.dcql.DCQLQuery
 import at.asitplus.openid.dcql.DCQLZkSystemType
 import at.asitplus.signum.indispensable.josef.io.joseCompliantSerializer
@@ -162,6 +162,7 @@ val OpenId4VpLongfellowWalletTest by testSuite {
 
     // TODO: update with zk iso query
     test("presentEuPidCredentialIsoQuery") {
+        // TODO: Currently broken and needs to be fixed (for non lfzk too)
         runBlocking {
             val (wallet, url, mockEngine) = setup(
                 scheme = EuPidScheme,
@@ -197,10 +198,10 @@ val OpenId4VpLongfellowWalletTest by testSuite {
             val dcqlQuery = DCQLQuery(
                 credentials = DCQLCredentialQueryList(
                     list = nonEmptyListOf(
-                        DCQLIsoMdocZkCredentialQuery(
+                        DCQLIsoMdocCredentialQuery(
                             id = DCQLCredentialQueryIdentifier("cred1"),
                             format = CredentialFormatEnum.MSO_MDOC_ZK,
-                            meta = DCQLIsoMdocZkCredentialMetadataAndValidityConstraints(
+                            meta = DCQLIsoMdocCredentialMetadataAndValidityConstraints(
                                 doctypeValue = MobileDrivingLicenceScheme.isoDocType,
                                 zkSystemType = nonEmptyListOf(
                                     DCQLZkSystemType(

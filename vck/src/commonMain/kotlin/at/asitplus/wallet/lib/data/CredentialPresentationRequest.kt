@@ -48,6 +48,9 @@ sealed interface CredentialPresentationRequest {
     ) : CredentialPresentationRequest {
         override fun toCredentialPresentation() = toCredentialPresentation(null)
 
+        // TODO: I think we need to tackle this instead of request, because i think that here we have got a mapping!
+        //  - wait we already have presentationRequest (this) and we have a mapping to the creqentialQuerySubmissions!
+        //  - Anyway I think it should happen here and not in
         fun toCredentialPresentation(
             credentialQuerySubmissions: Map<DCQLCredentialQueryIdentifier, DCQLCredentialSubmissionOption<SubjectCredentialStore.StoreEntry>>?
         ): CredentialPresentation = CredentialPresentation.DCQLPresentation(

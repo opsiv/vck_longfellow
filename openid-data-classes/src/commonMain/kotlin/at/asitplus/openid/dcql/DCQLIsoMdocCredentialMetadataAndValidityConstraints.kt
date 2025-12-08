@@ -2,6 +2,7 @@ package at.asitplus.openid.dcql
 
 import at.asitplus.KmmResult
 import at.asitplus.catching
+import at.asitplus.data.NonEmptyList
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -13,10 +14,19 @@ data class DCQLIsoMdocCredentialMetadataAndValidityConstraints(
      * defined in [ISO.18013-5].
      */
     @SerialName(SerialNames.DOCTYPE_VALUE)
-    val doctypeValue: String
+    val doctypeValue: String,
+
+    /**
+     * Extended ISO Mdoc metadata with Longfellow ZK support
+     * See https://github.com/google/longfellow-zk/blob/main/docs/content/en/docs/zk-system-spec.md
+     */
+    @SerialName(SerialNames.ZK_SYSTEM_TYPE)
+    val zkSystemType: NonEmptyList<DCQLZkSystemType>? = null,
+
 ) : DCQLCredentialMetadataAndValidityConstraints {
     object SerialNames {
         const val DOCTYPE_VALUE = "doctype_value"
+        const val ZK_SYSTEM_TYPE = "zk_system_type"
     }
 
     fun validate(actualDoctypeValue: String?): KmmResult<Unit> = catching {

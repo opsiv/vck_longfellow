@@ -12,7 +12,6 @@ import at.asitplus.jsonpath.core.NodeList
 import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.openid.dcql.DCQLCredentialQuery
 import at.asitplus.openid.dcql.DCQLIsoMdocCredentialQuery
-import at.asitplus.openid.dcql.DCQLIsoMdocZkCredentialQuery
 import at.asitplus.openid.dcql.DCQLQuery
 import at.asitplus.openid.dcql.DCQLQueryResult
 import at.asitplus.signum.indispensable.cosef.CoseKey
@@ -213,6 +212,7 @@ class HolderAgent(
                     request = request,
                     credentialAndDisclosedAttributes = submissionList
                         .associate { it.second.credential as StoreEntry.Iso to it.second.disclosedAttributes },
+                    credentialQuery = null // TODO: fix this with zk parameters
                 ).getOrThrow()
             )
         } else {
@@ -254,33 +254,15 @@ class HolderAgent(
 
         val verifiablePresentations = credentialSubmissions.mapValues { (queryId, submission) ->
             val credentialQuery = dcqlQuery.credentials.find { it.id == queryId }
-            val isoPresentationStrategy = selectIsoPresentationStrategyForQuery(credentialQuery, submission.credential)
             verifiablePresentationFactory.createVerifiablePresentation(
                 request = request,
                 credential = submission.credential,
                 disclosedAttributes = submission.matchingResult,
-                overrideIsoPresentationStrategy = isoPresentationStrategy,
+                credentialQuery = credentialQuery,
             ).getOrThrow()
         }
 
-
-
         PresentationResponseParameters.DCQLParameters(verifiablePresentations)
-    }
-
-    private fun selectIsoPresentationStrategyForQuery(
-        credentialQuery: DCQLCredentialQuery?,
-        credential: SubjectCredentialStore.StoreEntry
-    ): IsoPresentationStrategy? {
-        if (credential !is StoreEntry.Iso) return null
-
-        return when (credentialQuery) {
-            is DCQLIsoMdocZkCredentialQuery -> IsoPresentationStrategy.ZeroKnowledge(
-                zkSystemTypes = credentialQuery.meta.zkSystemType
-            )
-            is DCQLIsoMdocCredentialQuery -> IsoPresentationStrategy.Default
-            else -> null
-        }
     }
 
     override suspend fun matchInputDescriptorsAgainstCredentialStore(

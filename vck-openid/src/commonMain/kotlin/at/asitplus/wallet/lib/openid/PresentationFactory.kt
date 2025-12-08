@@ -22,6 +22,7 @@ import at.asitplus.openid.OpenIdConstants.VP_TOKEN
 import at.asitplus.openid.RelyingPartyMetadata
 import at.asitplus.openid.RequestParametersFrom
 import at.asitplus.openid.VpFormatsSupported
+import at.asitplus.openid.dcql.DCQLIsoMdocCredentialQuery
 import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.SignatureAlgorithm
 import at.asitplus.signum.indispensable.cosef.CoseSigned
@@ -92,6 +93,7 @@ internal class PresentationFactory(
             jsonWebKeys = jsonWebKeys,
             responseWillBeEncrypted = responseWillBeEncrypted
         )
+
         val vpRequestParams = PresentationRequestParameters(
             nonce = nonce,
             audience = audience,
@@ -103,7 +105,7 @@ internal class PresentationFactory(
                 )
             },
             sessionTranscript = sessionTranscript,
-            mdocGeneratedNonce = mdocGeneratedNonce
+            mdocGeneratedNonce = mdocGeneratedNonce,
         )
 
         holder.createPresentation(
