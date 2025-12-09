@@ -160,7 +160,7 @@ class OpenId4VpVerifier(
     }
 
     /**
-     * Creates the [at.asitplus.openid.RelyingPartyMetadata], without encryption (see [metadataWithEncryption])
+     * Creates the [RelyingPartyMetadata], without encryption (see [metadataWithEncryption])
      */
     @Suppress("DEPRECATION")
     val metadata by lazy {
@@ -644,6 +644,11 @@ class OpenId4VpVerifier(
                 ?: ""
             verifier.verifyPresentationIsoMdoc(
                 input = deviceResponse,
+                sessionTranscript = calcSessionTranscriptOpenId4VpFinal(
+                    clientId = clientId,
+                    responseUrl = responseUrl,
+                    nonce = expectedNonce,
+                    encrypted = mdocGeneratedNonce.isNotEmpty()),
                 verifyDocument = verifyDocument(mdocGeneratedNonce, clientId, responseUrl, expectedNonce)
             )
         }
@@ -652,7 +657,7 @@ class OpenId4VpVerifier(
     }
 
     /**
-     * Performs verification of the [at.asitplus.iso.SessionTranscript] and [at.asitplus.iso.DeviceAuthentication],
+     * Performs verification of the [SessionTranscript] and [DeviceAuthentication],
      * acc. to ISO/IEC 18013-5:2021 and ISO/IEC 18013-7:2024, if required (i.e. response is encrypted)
      */
     @Throws(IllegalArgumentException::class, IllegalStateException::class)
@@ -698,17 +703,19 @@ class OpenId4VpVerifier(
         .wrapInCborTag(24)
 
     /**
-     * Performs calculation of the [at.asitplus.iso.SessionTranscript] and [at.asitplus.iso.DeviceAuthentication],
+     * Performs calculation of the [SessionTranscript],
      * acc. to OpenID4VP 1.0
      */
-    private fun Document.calcDeviceAuthenticationOpenId4VpFinal(
-        clientId: String,
-        responseUrl: String,
+    private fun calcSessionTranscriptOpenId4VpFinal(
+        clientId: String?,
+        responseUrl: String?,
         nonce: String,
         encrypted: Boolean,
-    ) = DeviceAuthentication(
-        type = DeviceAuthentication.TYPE,
-        sessionTranscript = SessionTranscript.forOpenId(
+    ): SessionTranscript {
+        if (clientId == null || responseUrl == null)
+            throw IllegalStateException("Missing required parameters: clientId, responseUrl")
+
+        return SessionTranscript.forOpenId(
             OpenId4VpHandover(
                 type = OpenId4VpHandover.TYPE_OPENID4VP,
                 hash = coseCompliantSerializer.encodeToByteArray<OpenId4VpHandoverInfo>(
@@ -722,13 +729,33 @@ class OpenId4VpVerifier(
                     )
                 ).sha256(),
             )
+        )
+    }
+
+
+    /**
+     * Performs calculation of the [DeviceAuthentication],
+     * acc. to OpenID4VP 1.0
+     */
+    private fun Document.calcDeviceAuthenticationOpenId4VpFinal(
+        clientId: String,
+        responseUrl: String,
+        nonce: String,
+        encrypted: Boolean,
+    ) = DeviceAuthentication(
+        type = DeviceAuthentication.TYPE,
+        sessionTranscript = calcSessionTranscriptOpenId4VpFinal(
+            clientId = clientId,
+            responseUrl = responseUrl,
+            nonce = nonce,
+            encrypted = encrypted
         ),
         docType = docType,
         namespaces = deviceSigned.namespaces
     )
 
     /**
-     * Performs calculation of the [at.asitplus.iso.SessionTranscript] and [at.asitplus.iso.DeviceAuthentication],
+     * Performs calculation of the [SessionTranscript] and [DeviceAuthentication],
      * acc. to ISO/IEC 18013-5:2021 and ISO/IEC 18013-7:2024
      */
     @Suppress("DEPRECATION")
@@ -758,7 +785,7 @@ class OpenId4VpVerifier(
     private fun VerifyPresentationResult.mapToAuthnResponseResult(state: String) = when (this) {
         is VerifyPresentationResult.ValidationError -> AuthnResponseResult.ValidationError("vpToken", state, cause)
         is VerifyPresentationResult.Success -> AuthnResponseResult.Success(vp, state)
-        is VerifyPresentationResult.SuccessIso -> AuthnResponseResult.SuccessIso(documents, state)
+        is VerifyPresentationResult.SuccessIso -> AuthnResponseResult.SuccessIso(documents, zkDocuments, state)
         is VerifyPresentationResult.SuccessSdJwt -> AuthnResponseResult.SuccessSdJwt(
             sdJwtSigned = sdJwtSigned,
             verifiableCredentialSdJwt = verifiableCredentialSdJwt,

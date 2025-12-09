@@ -162,7 +162,6 @@ val OpenId4VpLongfellowWalletTest by testSuite {
 
     // TODO: update with zk iso query
     test("presentEuPidCredentialIsoQuery") {
-        // TODO: Currently broken and needs to be fixed (for non lfzk too)
         runBlocking {
             val (wallet, url, mockEngine) = setup(
                 scheme = EuPidScheme,

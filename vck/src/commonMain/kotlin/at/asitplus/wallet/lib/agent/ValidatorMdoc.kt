@@ -5,9 +5,13 @@ import at.asitplus.iso.Document
 import at.asitplus.iso.IssuerSigned
 import at.asitplus.iso.IssuerSignedItem
 import at.asitplus.iso.MobileSecurityObject
+import at.asitplus.iso.SessionTranscript
 import at.asitplus.iso.ValueDigestList
+import at.asitplus.iso.ZkDocument
+import at.asitplus.iso.ZkSignedItem
 import at.asitplus.iso.sha256
 import at.asitplus.iso.wrapInCborTag
+import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.cosef.CoseKey
 import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
@@ -16,14 +20,24 @@ import at.asitplus.signum.indispensable.pki.X509Certificate
 import at.asitplus.wallet.lib.agent.Verifier.VerifyCredentialResult
 import at.asitplus.wallet.lib.agent.Verifier.VerifyCredentialResult.SuccessIso
 import at.asitplus.wallet.lib.agent.Verifier.VerifyPresentationResult
+import at.asitplus.wallet.lib.agent.validation.CredentialFreshnessSummary
+import at.asitplus.wallet.lib.agent.validation.CredentialTimelinessValidationSummary
 import at.asitplus.wallet.lib.agent.validation.mdoc.MdocInputValidator
+import at.asitplus.wallet.lib.agent.validation.mdoc.MdocTimelinessValidationDetails
 import at.asitplus.wallet.lib.cbor.VerifyCoseSignatureWithKey
 import at.asitplus.wallet.lib.cbor.VerifyCoseSignatureWithKeyFun
 import at.asitplus.wallet.lib.data.IsoDocumentParsed
+import at.asitplus.wallet.lib.data.IsoZkDocumentParsed
+import at.asitplus.wallet.lib.data.rfc.tokenStatusList.primitives.TokenStatusValidationResult
+import at.asitplus.wallet.lib.longfellow.Circuit
+import at.asitplus.wallet.lib.longfellow.Proof
+import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeLibrary.verifyProof
+import at.asitplus.wallet.lib.longfellow.truncateToSecond
 import io.github.aakira.napier.Napier
-import io.matthewnelson.encoding.base64.Base64
-import io.matthewnelson.encoding.core.Encoder.Companion.encodeToString
 import kotlinx.serialization.builtins.ByteArraySerializer
+import kotlinx.serialization.encodeToByteArray
+import kotlin.collections.component1
+import kotlin.collections.component2
 import kotlin.coroutines.cancellation.CancellationException
 
 class ValidatorMdoc(
@@ -45,14 +59,25 @@ class ValidatorMdoc(
     @Throws(IllegalArgumentException::class, CancellationException::class)
     suspend fun verifyDeviceResponse(
         deviceResponse: DeviceResponse,
+        sessionTranscript: SessionTranscript,
         verifyDocumentCallback: suspend (MobileSecurityObject, Document) -> Boolean,
     ): VerifyPresentationResult {
         require(deviceResponse.status == 0U) { "status: ${deviceResponse.status}" }
-        require(deviceResponse.documents != null) { "documents are null" }
+        require(deviceResponse.documents != null || deviceResponse.zkDocuments != null) {
+            "documents and zkDocuments are null"
+        }
+
+        val documents = deviceResponse.documents?.map {
+            verifyDocument(it, verifyDocumentCallback)
+        } ?: emptyList()
+
+        val zkDocuments = deviceResponse.zkDocuments?.map {
+            verifyZkDocument(it, sessionTranscript)
+        } ?: emptyList()
+
         return VerifyPresentationResult.SuccessIso(
-            documents = deviceResponse.documents!!.map {
-                verifyDocument(it, verifyDocumentCallback)
-            }
+            documents = documents,
+            zkDocuments = zkDocuments,
         )
     }
 
@@ -109,6 +134,77 @@ class ValidatorMdoc(
             freshnessSummary = validator.checkCredentialFreshness(issuerSigned),
         )
     }
+
+    /**
+     * Validates an ISO ZkDocument, equivalent of a Verifiable Presentation
+     */
+    @Throws(IllegalArgumentException::class, CancellationException::class)
+    suspend fun verifyZkDocument(
+        zkDocument: ZkDocument,
+        sessionTranscript: SessionTranscript,
+    ): IsoZkDocumentParsed {
+        // extract Issuer signing key
+        val certificateHead = zkDocument.zkDocumentDataBytes.value.certificateChain?.firstOrNull()
+            ?: throw IllegalArgumentException("No issuer certificate in header")
+        val x509Certificate = X509Certificate.decodeFromDerSafe(certificateHead).getOrElse {
+            throw IllegalArgumentException("Could not parse issuer certificate from header", it)
+        }
+        val issuerKey = x509Certificate.decodedPublicKey.getOrThrow().toCoseKey().getOrNull()
+            ?.toCryptoPublicKey()?.getOrNull() as? CryptoPublicKey.EC
+            ?: throw IllegalArgumentException("Could not parse key from certificate")
+
+        val docType = zkDocument.zkDocumentDataBytes.value.docType
+        val circuit = Circuit(
+            // TODO: automatically gather the correct systemName from somewhere else.
+            //  Better let circuit be so abstract that it just tries different registered(=available) providers
+            systemName = "longfellow-libzk-v1",
+            circuitId = zkDocument.zkDocumentDataBytes.value.zkSystemId
+        )
+        val namespaces = zkDocument.zkDocumentDataBytes.value.issuerSigned ?: emptyMap()
+        val timestamp = zkDocument.zkDocumentDataBytes.value.timestamp.truncateToSecond() // TODO ensure it is in seconds
+        val rawProof = zkDocument.proof
+        val transcriptBytes = coseCompliantSerializer.encodeToByteArray(sessionTranscript)
+
+        val proof = Proof(
+            circuit = circuit,
+            transcript = transcriptBytes,
+            issuerPublicKey = issuerKey,
+            timestamp = timestamp,
+            namespaces = namespaces,
+            zkProof = rawProof,
+            docType = docType
+        )
+
+        val allItems = zkDocument.zkDocumentDataBytes.value.issuerSigned
+            ?.values
+            ?.flatMap { it.entries }
+            ?: emptyList()
+
+        val (validItems, invalidItems) = if (proof.verify()) {
+            allItems to emptyList()
+        } else {
+            emptyList<ZkSignedItem>() to allItems
+        }
+
+        return IsoZkDocumentParsed(
+            zkDocument = zkDocument,
+            validItems = validItems,
+            invalidItems = invalidItems,
+            // TODO: fix freshnessSummary
+            freshnessSummary = CredentialFreshnessSummary.Mdoc(
+                timelinessValidationSummary = CredentialTimelinessValidationSummary.Mdoc(
+                    details = MdocTimelinessValidationDetails(
+                        evaluationTime = timestamp,
+                        msoTimelinessValidationSummary = null,
+                    )
+                ),
+                tokenStatusValidationResult = TokenStatusValidationResult.Valid(
+                    tokenStatus = null
+                )
+            ),
+        )
+    }
+
 
     /**
      * Verify that calculated digests equal the corresponding digest values in the MSO.

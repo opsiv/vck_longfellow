@@ -3,6 +3,7 @@ package at.asitplus.wallet.lib.openid
 import at.asitplus.openid.dcql.DCQLCredentialQueryIdentifier
 import at.asitplus.wallet.lib.agent.validation.CredentialFreshnessSummary
 import at.asitplus.wallet.lib.data.IsoDocumentParsed
+import at.asitplus.wallet.lib.data.IsoZkDocumentParsed
 import at.asitplus.wallet.lib.data.SelectiveDisclosureItem
 import at.asitplus.wallet.lib.data.VerifiableCredentialSdJwt
 import at.asitplus.wallet.lib.data.VerifiablePresentationParsed
@@ -63,6 +64,7 @@ sealed class AuthnResponseResult {
      */
     data class SuccessIso(
         val documents: Collection<IsoDocumentParsed>,
+        val zkDocuments: Collection<IsoZkDocumentParsed>,
         val state: String?,
     ) : AuthnResponseResult()
 }
