@@ -20,6 +20,17 @@ enum class CredentialFormatEnum(val text: String) {
         else -> this
     }
 
+    fun isCompatibleWith(requestedFormat: CredentialFormatEnum): Boolean {
+        val thisNormalized = this.coerceDeprecations()
+        val requestedNormalized = requestedFormat.coerceDeprecations()
+
+        if (thisNormalized == requestedNormalized) return true
+
+        if (thisNormalized == MSO_MDOC && requestedNormalized == CredentialFormatEnum.MSO_MDOC_ZK) return true
+
+        return false
+    }
+
     companion object {
         fun parse(text: String) = entries.firstOrNull { it.text == text }
     }

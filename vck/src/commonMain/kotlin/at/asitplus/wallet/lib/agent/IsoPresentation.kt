@@ -17,13 +17,15 @@ import at.asitplus.jsonpath.core.NormalizedJsonPathSegment
 import at.asitplus.openid.CredentialFormatEnum
 import at.asitplus.openid.dcql.DCQLCredentialQuery
 import at.asitplus.openid.dcql.DCQLIsoMdocCredentialQuery
+import at.asitplus.openid.truncateToSeconds
 import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
+import at.asitplus.signum.indispensable.cosef.toCoseKey
+import at.asitplus.signum.indispensable.pki.X509Certificate
 import at.asitplus.wallet.lib.cbor.publicKey
 import at.asitplus.wallet.lib.longfellow.Circuit
 import at.asitplus.wallet.lib.longfellow.Proof
-import at.asitplus.wallet.lib.longfellow.truncateToSecond
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.encodeToByteArray
 import kotlin.collections.component1
@@ -147,7 +149,7 @@ object IsoPresentation {
                 ?: throw IllegalStateException("No Session Transcript found!")
         )
 
-        val now = Clock.System.now().truncateToSecond()
+        val now = Clock.System.now().truncateToSeconds()
 
         val deviceResponses: List<DeviceResponse> = buildPlainDocuments(
             request = request,
@@ -171,19 +173,21 @@ object IsoPresentation {
             if (!isIso8601Compliant(document.issuerSigned.issuerAuth.payload?.validityInfo))
                 throw IllegalStateException("Timestamps do not follow ISO-8601 (precision to seconds)")
 
-            // TODO: maybe use something from certificate chain instead?
-            val issuerPublicKey: CryptoPublicKey.EC = document
-                .issuerSigned.issuerAuth
-                .unprotectedHeader?.publicKey
-                ?.toCryptoPublicKey()?.getOrNull() as? CryptoPublicKey.EC
-                ?: throw IllegalStateException("No Issuer Public Key found in credential!")
+            val msoX5Chain = document.issuerSigned.issuerAuth.unprotectedHeader?.certificateChain
+
+            val certificateHead = msoX5Chain?.firstOrNull()
+                ?: throw IllegalArgumentException("No issuer certificate in header")
+            val x509Certificate = X509Certificate.decodeFromDerSafe(certificateHead).getOrElse {
+                throw IllegalArgumentException("Could not parse issuer certificate from header", it)
+            }
+            val issuerKey = x509Certificate.decodedPublicKey.getOrNull() as? CryptoPublicKey.EC
+                ?: throw IllegalArgumentException("Could not parse key from certificate")
+
 
             val namespaces = document.issuerSigned.namespaces.toDisclosed() ?: emptyMap()
             val doctype = document.docType
             val attributeCount = namespaces.values.sumOf { it.entries.size }
             val droBytes = coseCompliantSerializer.encodeToByteArray(deviceResponse)
-
-            val msoX5Chain = document.issuerSigned.issuerAuth.protectedHeader.certificateChain
 
             // TODO: replace these and set them for each strategy!
             val maxVersion: Int? = null
@@ -209,7 +213,7 @@ object IsoPresentation {
             val proof = Proof.generate(
                 circuit = circuit,
                 transcript = sessionTranscriptBytes,
-                issuerPublicKey = issuerPublicKey,
+                issuerPublicKey = issuerKey,
                 timestamp = now,
                 namespaces = namespaces,
                 deviceResponseObject = droBytes,

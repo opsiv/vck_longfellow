@@ -11,6 +11,7 @@ import at.asitplus.iso.ZkDocument
 import at.asitplus.iso.ZkSignedItem
 import at.asitplus.iso.sha256
 import at.asitplus.iso.wrapInCborTag
+import at.asitplus.openid.truncateToSeconds
 import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.cosef.CoseKey
 import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
@@ -31,8 +32,6 @@ import at.asitplus.wallet.lib.data.IsoZkDocumentParsed
 import at.asitplus.wallet.lib.data.rfc.tokenStatusList.primitives.TokenStatusValidationResult
 import at.asitplus.wallet.lib.longfellow.Circuit
 import at.asitplus.wallet.lib.longfellow.Proof
-import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeLibrary.verifyProof
-import at.asitplus.wallet.lib.longfellow.truncateToSecond
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.builtins.ByteArraySerializer
 import kotlinx.serialization.encodeToByteArray
@@ -149,8 +148,7 @@ class ValidatorMdoc(
         val x509Certificate = X509Certificate.decodeFromDerSafe(certificateHead).getOrElse {
             throw IllegalArgumentException("Could not parse issuer certificate from header", it)
         }
-        val issuerKey = x509Certificate.decodedPublicKey.getOrThrow().toCoseKey().getOrNull()
-            ?.toCryptoPublicKey()?.getOrNull() as? CryptoPublicKey.EC
+        val issuerKey = x509Certificate.decodedPublicKey.getOrNull() as? CryptoPublicKey.EC
             ?: throw IllegalArgumentException("Could not parse key from certificate")
 
         val docType = zkDocument.zkDocumentDataBytes.value.docType
@@ -161,7 +159,7 @@ class ValidatorMdoc(
             circuitId = zkDocument.zkDocumentDataBytes.value.zkSystemId
         )
         val namespaces = zkDocument.zkDocumentDataBytes.value.issuerSigned ?: emptyMap()
-        val timestamp = zkDocument.zkDocumentDataBytes.value.timestamp.truncateToSecond() // TODO ensure it is in seconds
+        val timestamp = zkDocument.zkDocumentDataBytes.value.timestamp.truncateToSeconds()
         val rawProof = zkDocument.proof
         val transcriptBytes = coseCompliantSerializer.encodeToByteArray(sessionTranscript)
 

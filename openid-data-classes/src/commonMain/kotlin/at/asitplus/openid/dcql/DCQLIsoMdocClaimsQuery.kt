@@ -106,7 +106,7 @@ data class DCQLIsoMdocClaimsQuery(
         credential: Credential,
         credentialStructureExtractor: (Credential) -> DCQLCredentialClaimStructure.IsoMdocStructure,
     ): KmmResult<DCQLClaimsQueryResult.IsoMdocResult> = catching {
-        if (credentialQuery.format != CredentialFormatEnum.MSO_MDOC) {
+        if (credentialQuery.format != CredentialFormatEnum.MSO_MDOC && credentialQuery.format != CredentialFormatEnum.MSO_MDOC_ZK) {
             throw IllegalArgumentException("Inconsistent credential format and claim query")
         }
         val credentialStructure = credentialStructureExtractor(credential)

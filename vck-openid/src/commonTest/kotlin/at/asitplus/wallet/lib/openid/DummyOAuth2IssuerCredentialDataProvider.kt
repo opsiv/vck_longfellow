@@ -5,6 +5,7 @@ import at.asitplus.catching
 import at.asitplus.iso.IssuerSignedItem
 import at.asitplus.openid.OidcUserInfo
 import at.asitplus.openid.OidcUserInfoExtended
+import at.asitplus.openid.truncateToSeconds
 import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.wallet.eupid.EuPidCredential
 import at.asitplus.wallet.eupid.EuPidScheme
@@ -63,7 +64,7 @@ object DummyOAuth2IssuerCredentialDataProvider : CredentialDataProviderFun {
         subjectPublicKey: CryptoPublicKey,
         representation: ConstantIndex.CredentialRepresentation,
     ): CredentialToBeIssued {
-        val issuance = clock.now()
+        val issuance = clock.now().truncateToSeconds()
         val expiration = issuance + defaultLifetime
         val familyName = userInfo.userInfo.familyName
         val givenName = userInfo.userInfo.givenName
@@ -116,7 +117,7 @@ object DummyOAuth2IssuerCredentialDataProvider : CredentialDataProviderFun {
         userInfo: OidcUserInfoExtended,
         subjectPublicKey: CryptoPublicKey,
     ): CredentialToBeIssued.Iso {
-        val issuance = clock.now()
+        val issuance = clock.now().truncateToSeconds()
         val expiration = issuance + defaultLifetime
         val familyName = userInfo.userInfo.familyName
         val givenName = userInfo.userInfo.givenName
@@ -142,7 +143,7 @@ object DummyOAuth2IssuerCredentialDataProvider : CredentialDataProviderFun {
         subjectPublicKey: CryptoPublicKey,
         representation: ConstantIndex.CredentialRepresentation,
     ): CredentialToBeIssued {
-        val issuance = clock.now()
+        val issuance = clock.now().truncateToSeconds()
         val expiration = issuance + defaultLifetime
         val familyName = userInfo.userInfo.familyName ?: "Unknown"
         val givenName = userInfo.userInfo.givenName ?: "Unknown"

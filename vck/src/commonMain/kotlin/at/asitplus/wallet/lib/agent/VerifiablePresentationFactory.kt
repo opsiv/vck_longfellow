@@ -8,6 +8,7 @@ import at.asitplus.jsonpath.core.NormalizedJsonPathSegment
 import at.asitplus.openid.dcql.DCQLClaimsQueryResult
 import at.asitplus.openid.dcql.DCQLCredentialQuery
 import at.asitplus.openid.dcql.DCQLCredentialQueryMatchingResult
+import at.asitplus.openid.truncateToSeconds
 import at.asitplus.signum.indispensable.Digest
 import at.asitplus.signum.indispensable.josef.JwsSigned
 import at.asitplus.wallet.lib.data.KeyBindingJws
@@ -189,7 +190,7 @@ class VerifiablePresentationFactory(
     ): JwsSigned<KeyBindingJws> = signKeyBinding(
         JwsContentTypeConstants.KB_JWT,
         KeyBindingJws(
-            issuedAt = Clock.System.now(),
+            issuedAt = Clock.System.now().truncateToSeconds(),
             audience = request.audience,
             challenge = request.nonce,
             sdHash = issuerJwtPlusDisclosures.encodeToByteArray().sha256(),

@@ -1,6 +1,5 @@
 package at.asitplus.wallet.lib.ktor.openid
 
-import at.asitplus.data.NonEmptyList
 import at.asitplus.data.NonEmptyList.Companion.nonEmptyListOf
 import at.asitplus.dcapi.request.Oid4vpDCAPIRequest
 import at.asitplus.iso.IssuerSignedItem
@@ -39,7 +38,6 @@ import at.asitplus.wallet.lib.data.CredentialPresentation.DCQLPresentation
 import at.asitplus.wallet.lib.data.CredentialPresentationRequest.DCQLRequest
 import at.asitplus.wallet.lib.data.SelectiveDisclosureItem
 import at.asitplus.wallet.lib.data.rfc3986.toUri
-import at.asitplus.wallet.lib.longfellow.truncateToSecond
 import at.asitplus.wallet.lib.oidvci.OAuth2Exception
 import at.asitplus.wallet.lib.openid.AuthenticationResponseResult
 import at.asitplus.wallet.lib.openid.AuthnResponseResult

@@ -1,6 +1,8 @@
 package at.asitplus.wallet.lib.openid
 
+import at.asitplus.data.NonEmptyList.Companion.nonEmptyListOf
 import at.asitplus.openid.OpenIdConstants
+import at.asitplus.openid.dcql.DCQLZkSystemType
 import at.asitplus.testballoon.invoke
 import at.asitplus.wallet.lib.agent.EphemeralKeyWithSelfSignedCert
 import at.asitplus.wallet.lib.agent.EphemeralKeyWithoutCert
@@ -10,6 +12,7 @@ import at.asitplus.wallet.lib.agent.IssuerAgent
 import at.asitplus.wallet.lib.agent.KeyMaterial
 import at.asitplus.wallet.lib.agent.RandomSource
 import at.asitplus.wallet.lib.agent.toStoreCredentialInput
+import at.asitplus.wallet.lib.data.ConstantIndex
 import at.asitplus.wallet.lib.data.ConstantIndex.AtomicAttribute2023
 import at.asitplus.wallet.lib.data.ConstantIndex.AtomicAttribute2023.CLAIM_GIVEN_NAME
 import at.asitplus.wallet.lib.data.ConstantIndex.CredentialRepresentation.ISO_MDOC
@@ -243,6 +246,54 @@ val OpenId4VpIsoProtocolTest by testSuite {
             validItems.shouldHaveSingleElement { it.elementIdentifier == MobileDrivingLicenceDataElements.FAMILY_NAME }
             invalidItems.shouldBeEmpty()
         }
+    }
+
+    "Selective Disclosure with mDL using ZK (DCQL with MSO_MDOC_ZK)" {
+        val requestedClaim = MobileDrivingLicenceDataElements.FAMILY_NAME
+        val requestOptions = RequestOptions(
+            credentials = setOf(
+                RequestOptionsCredential(
+                    credentialScheme = MobileDrivingLicenceScheme,
+                    representation = ConstantIndex.CredentialRepresentation.ISO_MDOC,
+                    requestedAttributes = setOf(requestedClaim),
+                    zkSystemTypes = nonEmptyListOf(
+                        DCQLZkSystemType(
+                            system = "longfellow-libzk-v1",
+                            circuitHash = "137e5a75ce72735a37c8a72da1a8a0a5df8d13365c2ae3d2c2bd6a0e7197c7c6",
+                            numAttributes = 1,
+                            version = 6,
+                        )
+                    )
+                )
+            ),
+            presentationMechanism = PresentationMechanismEnum.DCQL,
+            responseMode = OpenIdConstants.ResponseMode.DirectPost,
+            responseUrl = "https://example.com/response",
+        )
+
+        val authnRequest = verifierOid4vp.createAuthnRequest(
+            requestOptions, OpenId4VpVerifier.CreationOptions.Query(walletUrl)
+        ).getOrThrow().url
+
+        val authnResponse = holderOid4vp.createAuthnResponse(authnRequest).getOrThrow()
+            .shouldBeInstanceOf<AuthenticationResponseResult.Post>()
+
+        val input = authnResponse.params.formUrlEncode()
+
+        val responseResult = verifierOid4vp.validateAuthnResponse(input)
+
+        responseResult
+            .shouldBeInstanceOf<AuthnResponseResult.VerifiableDCQLPresentationValidationResults>()
+            .validationResults.values.first()
+            .shouldBeInstanceOf<AuthnResponseResult.SuccessIso>()
+            .apply {
+                zkDocuments.shouldBeSingleton()
+                zkDocuments.first().apply {
+                    validItems.shouldBeSingleton()
+                    validItems.shouldHaveSingleElement { it.elementIdentifier == requestedClaim }
+                    invalidItems.shouldBeEmpty()
+                }
+            }
     }
 }
 

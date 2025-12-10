@@ -8,6 +8,7 @@ import at.asitplus.iso.MobileSecurityObject
 import at.asitplus.iso.ValidityInfo
 import at.asitplus.iso.ValueDigest
 import at.asitplus.iso.ValueDigestList
+import at.asitplus.openid.truncateToSeconds
 import at.asitplus.signum.indispensable.SignatureAlgorithm
 import at.asitplus.signum.indispensable.cosef.toCoseKey
 import at.asitplus.signum.indispensable.josef.ConfirmationClaim
@@ -31,7 +32,6 @@ import at.asitplus.wallet.lib.jws.SignJwt
 import at.asitplus.wallet.lib.jws.SignJwtExt
 import at.asitplus.wallet.lib.jws.SignJwtExtFun
 import at.asitplus.wallet.lib.jws.SignJwtFun
-import at.asitplus.wallet.lib.longfellow.truncateToSecond
 import com.benasher44.uuid.uuid4
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.json.JsonObject
@@ -39,6 +39,8 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
 import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 /**
@@ -49,6 +51,8 @@ class IssuerAgent(
     private val issuerCredentialStore: IssuerCredentialStore = InMemoryIssuerCredentialStore(),
     private val statusListBaseUrl: String = "https://wallet.a-sit.at/backend/credentials/status",
     private val clock: Clock = Clock.System,
+    /** Time to adjust the [Clock.now] for issuance date of credentials. */
+    private val issuanceOffset: Duration = (-3).minutes,
     override val cryptoAlgorithms: Set<SignatureAlgorithm> = setOf(keyMaterial.signatureAlgorithm),
     private val timePeriodProvider: TimePeriodProvider = FixedTimePeriodProvider,
     /** The identifier used in `issuer` properties of credentials (JWT VC and SD JWT). */
@@ -68,10 +72,11 @@ class IssuerAgent(
     override suspend fun issueCredential(
         credential: CredentialToBeIssued,
     ): KmmResult<Issuer.IssuedCredential> = catching {
+        val issuanceDate = clock.now().minus(issuanceOffset.absoluteValue).truncateToSeconds()
         when (credential) {
-            is CredentialToBeIssued.Iso -> issueMdoc(credential, clock.now().truncateToSecond())
-            is CredentialToBeIssued.VcJwt -> issueVc(credential, clock.now())
-            is CredentialToBeIssued.VcSd -> issueVcSd(credential, clock.now())
+            is CredentialToBeIssued.Iso -> issueMdoc(credential, issuanceDate)
+            is CredentialToBeIssued.VcJwt -> issueVc(credential, issuanceDate)
+            is CredentialToBeIssued.VcSd -> issueVcSd(credential, issuanceDate)
         }
     }
 
@@ -79,7 +84,7 @@ class IssuerAgent(
         credential: CredentialToBeIssued.Iso,
         issuanceDate: Instant,
     ): Issuer.IssuedCredential {
-        val expirationDate = credential.expiration
+        val expirationDate = credential.expiration.truncateToSeconds()
         val timePeriod = timePeriodProvider.getTimePeriodFor(issuanceDate)
         val reference = issuerCredentialStore.createStatusListIndex(credential, timePeriod).getOrThrow()
         val coseKey = credential.subjectPublicKey.toCoseKey()

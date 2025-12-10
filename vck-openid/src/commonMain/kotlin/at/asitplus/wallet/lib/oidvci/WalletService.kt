@@ -319,7 +319,7 @@ class WalletService(
                 JsonWebToken(
                     issuer = clientId, // omit when token was pre-authn?
                     audience = credentialIssuer,
-                    issuedAt = clock.now(),
+                    issuedAt = clock.now().truncateToSeconds(),
                     nonce = clientNonce,
                 ),
                 JsonWebToken.serializer(),

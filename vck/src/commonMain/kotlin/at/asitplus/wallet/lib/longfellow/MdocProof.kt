@@ -6,12 +6,12 @@ import kotlin.time.Instant
 import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.ZkSignedList
 import at.asitplus.iso.Document
+import at.asitplus.openid.truncateToSeconds
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.wallet.lib.agent.toDisclosed
 import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeLibrary
 import kotlinx.serialization.encodeToByteArray
 import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
 interface MdocProof {
     fun verify(): Boolean
@@ -84,7 +84,7 @@ interface MdocProof {
             // - use requirenotnull syntactic sugar
         }
 
-        override val timestamp: Instant = Clock.System.now().truncateToSecond()
+        override val timestamp: Instant = Clock.System.now().truncateToSeconds()
         private val document: Document = deviceResponse.documents!!.single()
         override val docType: String = document.docType
 
@@ -111,6 +111,3 @@ interface MdocProof {
 
 }
 
-@OptIn(ExperimentalTime::class)
-fun Instant.truncateToSecond(): Instant =
-    Instant.fromEpochSeconds(this.epochSeconds)

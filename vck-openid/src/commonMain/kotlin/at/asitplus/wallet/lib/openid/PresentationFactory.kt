@@ -23,6 +23,7 @@ import at.asitplus.openid.RelyingPartyMetadata
 import at.asitplus.openid.RequestParametersFrom
 import at.asitplus.openid.VpFormatsSupported
 import at.asitplus.openid.dcql.DCQLIsoMdocCredentialQuery
+import at.asitplus.openid.truncateToSeconds
 import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.SignatureAlgorithm
 import at.asitplus.signum.indispensable.cosef.CoseSigned
@@ -254,7 +255,7 @@ internal class PresentationFactory(
         }
         val nonce = request.parameters.nonce
             ?: throw InvalidRequest("nonce is null")
-        val now = clock.now()
+        val now = clock.now().truncateToSeconds()
         // we'll assume jwk-thumbprint
         val agentJsonWebKey = agentPublicKey.toJsonWebKey()
         val audience = request.parameters.clientId
