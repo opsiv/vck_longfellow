@@ -21,6 +21,7 @@ import at.asitplus.openid.dcql.DCQLIsoMdocCredentialMetadataAndValidityConstrain
 import at.asitplus.openid.dcql.DCQLIsoMdocCredentialQuery
 import at.asitplus.openid.dcql.DCQLQuery
 import at.asitplus.openid.dcql.DCQLZkSystemType
+import at.asitplus.openid.truncateToSeconds
 import at.asitplus.signum.indispensable.josef.io.joseCompliantSerializer
 import at.asitplus.wallet.eupid.EuPidScheme
 import at.asitplus.wallet.lib.agent.ClaimToBeIssued
@@ -103,7 +104,7 @@ val OpenId4VpLongfellowWalletTest by testSuite {
     ): CredentialToBeIssued = when (this) {
         ISO_MDOC -> CredentialToBeIssued.Iso(
             issuerSignedItems = attributes.map { it.toIssuerSignedItem() },
-            expiration = Clock.System.now().plus(5.minutes).truncateToSecond(),
+            expiration = Clock.System.now().plus(5.minutes).truncateToSeconds(),
             scheme = scheme,
             subjectPublicKey = keyMaterial.publicKey,
             userInfo = OidcUserInfoExtended.fromOidcUserInfo(OidcUserInfo("subject")).getOrThrow(),
