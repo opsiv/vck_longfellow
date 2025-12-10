@@ -3,7 +3,6 @@ package at.asitplus.wallet.lib.data
 import at.asitplus.iso.ZkDocument
 import at.asitplus.iso.ZkSignedItem
 import at.asitplus.wallet.lib.agent.validation.CredentialFreshnessSummary
-import at.asitplus.wallet.lib.longfellow.Proof
 
 data class IsoZkDocumentParsed(
     val zkDocument: ZkDocument,

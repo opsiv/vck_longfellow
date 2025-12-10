@@ -186,6 +186,7 @@ class ValidatorMdoc(
             emptyList<ZkSignedItem>() to allItems
         }
 
+        // TODO: check somewhere if this is even allowed to be proven in ZK (i.e. through some kind of callback?)
         return IsoZkDocumentParsed(
             zkDocument = zkDocument,
             validItems = validItems,
@@ -198,9 +199,7 @@ class ValidatorMdoc(
                         msoTimelinessValidationSummary = null,
                     )
                 ),
-                tokenStatusValidationResult = TokenStatusValidationResult.Valid(
-                    tokenStatus = null
-                )
+                tokenStatusValidationResult = TokenStatusValidationResult.Valid(null)
             ),
         )
     }

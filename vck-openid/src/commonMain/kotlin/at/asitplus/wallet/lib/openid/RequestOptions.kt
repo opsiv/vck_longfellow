@@ -1,5 +1,6 @@
 package at.asitplus.wallet.lib.openid
 
+import at.asitplus.data.NonEmptyList
 import at.asitplus.data.NonEmptyList.Companion.toNonEmptyList
 import at.asitplus.dif.Constraint
 import at.asitplus.dif.ConstraintField
@@ -31,6 +32,7 @@ import at.asitplus.openid.dcql.DCQLIsoMdocCredentialMetadataAndValidityConstrain
 import at.asitplus.openid.dcql.DCQLJsonClaimsQuery
 import at.asitplus.openid.dcql.DCQLQuery
 import at.asitplus.openid.dcql.DCQLSdJwtCredentialMetadataAndValidityConstraints
+import at.asitplus.openid.dcql.DCQLZkSystemType
 import at.asitplus.wallet.lib.data.ConstantIndex
 import at.asitplus.wallet.lib.data.ConstantIndex.CredentialRepresentation
 import at.asitplus.wallet.lib.data.ConstantIndex.supportsSdJwt
@@ -122,7 +124,9 @@ data class RequestOptions(
                 val format = when (credential.representation) {
                     CredentialRepresentation.PLAIN_JWT -> CredentialFormatEnum.JWT_VC
                     CredentialRepresentation.SD_JWT -> CredentialFormatEnum.DC_SD_JWT
-                    CredentialRepresentation.ISO_MDOC -> CredentialFormatEnum.MSO_MDOC
+                    CredentialRepresentation.ISO_MDOC ->
+                        if (credential.zkSystemTypes != null) CredentialFormatEnum.MSO_MDOC_ZK
+                        else CredentialFormatEnum.MSO_MDOC
                 }
                 val meta = when (credential.representation) {
                     CredentialRepresentation.PLAIN_JWT -> DCQLEmptyCredentialMetadataAndValidityConstraints
@@ -131,7 +135,8 @@ data class RequestOptions(
                     )
 
                     CredentialRepresentation.ISO_MDOC -> DCQLIsoMdocCredentialMetadataAndValidityConstraints(
-                        doctypeValue = credential.credentialScheme.isoDocType!!
+                        doctypeValue = credential.credentialScheme.isoDocType!!,
+                        zkSystemType = credential.zkSystemTypes
                     )
                 }
                 val requestedAttributes = (credential.requestedAttributes?.map {
@@ -232,6 +237,8 @@ data class RequestOptionsCredential(
     val requestedOptionalAttributes: RequestedAttributes? = null,
     /** ID to be used in [DifInputDescriptor] or [QesInputDescriptor], or [DCQLCredentialQueryInstance] */
     val id: String = uuid4().toString(),
+
+    val zkSystemTypes: NonEmptyList<DCQLZkSystemType>? = null,
 ) {
     fun buildId() = if (isMdoc) credentialScheme.isoDocType!! else id
 

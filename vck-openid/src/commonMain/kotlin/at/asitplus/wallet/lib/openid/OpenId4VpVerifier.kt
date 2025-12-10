@@ -638,8 +638,7 @@ class OpenId4VpVerifier(
                 ?.jweDecrypted?.header?.agreementPartyUInfo
             val deviceResponse = relatedPresentation.jsonPrimitive.content.decodeToByteArray(Base64UrlStrict)
                 .let { coseCompliantSerializer.decodeFromByteArray<DeviceResponse>(it) }
-
-            val mdocGeneratedNonce = apuDirect?.decodeToString()
+                        val mdocGeneratedNonce = apuDirect?.decodeToString()
                 ?: apuNested?.decodeToString()
                 ?: ""
             verifier.verifyPresentationIsoMdoc(
