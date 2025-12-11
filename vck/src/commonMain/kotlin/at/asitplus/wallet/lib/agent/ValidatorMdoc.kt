@@ -1,5 +1,6 @@
 package at.asitplus.wallet.lib.agent
 
+import at.asitplus.data.NonEmptyList
 import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.Document
 import at.asitplus.iso.IssuerSigned
@@ -11,6 +12,7 @@ import at.asitplus.iso.ZkDocument
 import at.asitplus.iso.ZkSignedItem
 import at.asitplus.iso.sha256
 import at.asitplus.iso.wrapInCborTag
+import at.asitplus.openid.dcql.DCQLZkSystemType
 import at.asitplus.openid.truncateToSeconds
 import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.cosef.CoseKey
@@ -60,10 +62,21 @@ class ValidatorMdoc(
         deviceResponse: DeviceResponse,
         sessionTranscript: SessionTranscript,
         verifyDocumentCallback: suspend (MobileSecurityObject, Document) -> Boolean,
+        validateZkSystemType: ((ZkDocument) -> Boolean)? = null,
     ): VerifyPresentationResult {
         require(deviceResponse.status == 0U) { "status: ${deviceResponse.status}" }
         require(deviceResponse.documents != null || deviceResponse.zkDocuments != null) {
             "documents and zkDocuments are null"
+        }
+        val hasZkDocuments = !deviceResponse.zkDocuments.isNullOrEmpty()
+
+        if (hasZkDocuments && validateZkSystemType == null) {
+            throw IllegalArgumentException("ZkDocuments in response, but no validation possible")
+        }
+
+        deviceResponse.zkDocuments?.forEach { zkDocument ->
+            val isAllowed = validateZkSystemType?.invoke(zkDocument) ?: false
+            require(isAllowed) { "zkDocument not of any allowed zkSystemType" }
         }
 
         val documents = deviceResponse.documents?.map {

@@ -1,11 +1,14 @@
 package at.asitplus.wallet.lib.agent
 
+import at.asitplus.data.NonEmptyList
 import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.Document
 import at.asitplus.iso.IssuerSigned
 import at.asitplus.iso.MobileSecurityObject
 import at.asitplus.iso.SessionTranscript
+import at.asitplus.iso.ZkDocument
 import at.asitplus.openid.TransactionDataBase64Url
+import at.asitplus.openid.dcql.DCQLZkSystemType
 import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.josef.JwsSigned
 import at.asitplus.signum.indispensable.josef.toJsonWebKey
@@ -65,8 +68,17 @@ interface Verifier {
     // TODO: change description and think about whether we want to expose sessionTranscript directly
     suspend fun verifyPresentationIsoMdoc(
         input: DeviceResponse,
-        sessionTranscript: SessionTranscript,
+        sessionTranscript: SessionTranscript, // TODO: remove this agian, wehn the callback approach is done
         verifyDocument: suspend (MobileSecurityObject, Document) -> Boolean,
+        // TODO: this should eventually become verifyZkDocument and we outsource the whole verifiaction logic to the caller
+        //  Im thinking of having a full proof class assembled except for the session transcript which is instead
+        //  provided in the callback and then just calls verify on the Proof:
+        //    val verifyZkDocument: ((IsoMdocProof) -> Boolean) =
+        //        it.zkType in allowedZkTypes && it.verify(sessionTranscript)
+        //  that could work very well if the caller knows how to map the request allowed zk types to the
+        //  one used in the proof and it would also allow us not to pass sessionTranscript at all
+
+        validateZkSystemType: ((ZkDocument) -> Boolean)? = null,
     ): VerifyPresentationResult
 
 

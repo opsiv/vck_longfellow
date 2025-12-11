@@ -18,6 +18,7 @@ import at.asitplus.iso.OpenId4VpHandover
 import at.asitplus.iso.OpenId4VpHandoverInfo
 import at.asitplus.iso.ResponseUriToHash
 import at.asitplus.iso.SessionTranscript
+import at.asitplus.iso.ZkDocument
 import at.asitplus.iso.sha256
 import at.asitplus.iso.wrapInCborTag
 import at.asitplus.jsonpath.JsonPath
@@ -39,7 +40,10 @@ import at.asitplus.openid.SupportedAlgorithmsContainerJwt
 import at.asitplus.openid.SupportedAlgorithmsContainerSdJwt
 import at.asitplus.openid.TransactionDataBase64Url
 import at.asitplus.openid.VpFormatsSupported
+import at.asitplus.openid.dcql.DCQLCredentialQuery
 import at.asitplus.openid.dcql.DCQLCredentialQueryIdentifier
+import at.asitplus.openid.dcql.DCQLIsoMdocCredentialMetadataAndValidityConstraints
+import at.asitplus.openid.dcql.DCQLIsoMdocCredentialQuery
 import at.asitplus.signum.indispensable.SignatureAlgorithm
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.signum.indispensable.cosef.toCoseAlgorithm
@@ -553,8 +557,16 @@ class OpenId4VpVerifier(
                 val credentialQuery = credentialQueryMap[credentialQueryId]
                     ?: throw IllegalArgumentException("Unknown credential query identifier.")
 
+                val allowedZkSystemTypes = (credentialQuery.meta as? DCQLIsoMdocCredentialMetadataAndValidityConstraints)?.zkSystemType
+                val validateZkSystemTypeCallback: ((ZkDocument) -> Boolean)? = allowedZkSystemTypes?.let { allowed ->
+                    { zkDoc: ZkDocument ->
+                        val usedCircuitId = zkDoc.zkDocumentDataBytes.value.zkSystemId
+                        allowed.any {it.circuitHash == usedCircuitId }
+                    }
+                }
+
                 catchingUnwrapped {
-                    verifyPresentationResult(
+                    val result = verifyPresentationResult(
                         claimFormat = credentialQuery.format.toClaimFormat(),
                         relatedPresentation = relatedPresentation,
                         expectedNonce = expectedNonce,
@@ -562,7 +574,17 @@ class OpenId4VpVerifier(
                         clientId = authnRequest.clientId,
                         responseUrl = authnRequest.responseUrl ?: authnRequest.redirectUrlExtracted,
                         transactionData = authnRequest.transactionData,
-                    ).mapToAuthnResponseResult(state)
+                        validateZkSystemType = validateZkSystemTypeCallback,
+                    )
+
+                    // TODO: move DCQL speicifc check somewhere else, it is a bit ugly to do this afterwards.
+                    //  could be done before or within the verifyPresentationResult
+                    if (result is VerifyPresentationResult.SuccessIso) {
+                        val totalDocs = result.documents.size + result.zkDocuments.size
+                        require(totalDocs == 1) {"DCQL expects exactly one document, $totalDocs provided"}
+                    }
+
+                    result.mapToAuthnResponseResult(state)
                 }.getOrElse {
                     return AuthnResponseResult.ValidationError("Invalid presentation", state, it)
                 }
@@ -611,6 +633,7 @@ class OpenId4VpVerifier(
         clientId: String?,
         responseUrl: String?,
         transactionData: List<TransactionDataBase64Url>?,
+        validateZkSystemType: ((ZkDocument) -> Boolean)? = null,
     ) = when (claimFormat) {
         ClaimFormat.JWT_SD, ClaimFormat.SD_JWT -> verifier.verifyPresentationSdJwt(
             input = SdJwtSigned.parseCatching(relatedPresentation.jsonPrimitive.content).getOrElse {
@@ -638,7 +661,8 @@ class OpenId4VpVerifier(
                 ?.jweDecrypted?.header?.agreementPartyUInfo
             val deviceResponse = relatedPresentation.jsonPrimitive.content.decodeToByteArray(Base64UrlStrict)
                 .let { coseCompliantSerializer.decodeFromByteArray<DeviceResponse>(it) }
-                        val mdocGeneratedNonce = apuDirect?.decodeToString()
+
+            val mdocGeneratedNonce = apuDirect?.decodeToString()
                 ?: apuNested?.decodeToString()
                 ?: ""
             verifier.verifyPresentationIsoMdoc(
@@ -648,7 +672,8 @@ class OpenId4VpVerifier(
                     responseUrl = responseUrl,
                     nonce = expectedNonce,
                     encrypted = mdocGeneratedNonce.isNotEmpty()),
-                verifyDocument = verifyDocument(mdocGeneratedNonce, clientId, responseUrl, expectedNonce)
+                verifyDocument = verifyDocument(mdocGeneratedNonce, clientId, responseUrl, expectedNonce),
+                validateZkSystemType = validateZkSystemType,
             )
         }
 
@@ -660,7 +685,7 @@ class OpenId4VpVerifier(
      * acc. to ISO/IEC 18013-5:2021 and ISO/IEC 18013-7:2024, if required (i.e. response is encrypted)
      */
     @Throws(IllegalArgumentException::class, IllegalStateException::class)
-    private fun verifyDocument(
+    private fun verifyDocument( // TODO: actually also handle zkDocuemtns like this
         mdocGeneratedNonce: String,
         clientId: String?,
         responseUrl: String?,
@@ -702,8 +727,7 @@ class OpenId4VpVerifier(
         .wrapInCborTag(24)
 
     /**
-     * Performs calculation of the [SessionTranscript],
-     * acc. to OpenID4VP 1.0
+     * Performs calculation of the [SessionTranscript] acc. to OpenID4VP 1.0
      */
     private fun calcSessionTranscriptOpenId4VpFinal(
         clientId: String?,
@@ -733,8 +757,7 @@ class OpenId4VpVerifier(
 
 
     /**
-     * Performs calculation of the [DeviceAuthentication],
-     * acc. to OpenID4VP 1.0
+     * Performs calculation of the [DeviceAuthentication] acc. to OpenID4VP 1.0
      */
     private fun Document.calcDeviceAuthenticationOpenId4VpFinal(
         clientId: String,
