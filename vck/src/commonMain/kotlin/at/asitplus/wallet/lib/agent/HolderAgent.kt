@@ -212,7 +212,6 @@ class HolderAgent(
                     request = request,
                     credentialAndDisclosedAttributes = submissionList
                         .associate { it.second.credential as StoreEntry.Iso to it.second.disclosedAttributes },
-                    credentialQuery = null // TODO: fix this with zk parameters
                 ).getOrThrow()
             )
         } else {

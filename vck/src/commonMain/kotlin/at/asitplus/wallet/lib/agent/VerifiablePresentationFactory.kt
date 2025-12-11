@@ -41,12 +41,10 @@ class VerifiablePresentationFactory(
     suspend fun createVerifiablePresentationForIsoCredentials(
         request: PresentationRequestParameters,
         credentialAndDisclosedAttributes: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>,
-        credentialQuery: DCQLCredentialQuery? = null,
         ): KmmResult<CreatePresentationResult> = catching {
         IsoPresentation.createPresentation(
             request = request,
             credentialAndRequestedClaims = credentialAndDisclosedAttributes,
-            credentialQuery = credentialQuery,
         )
     }
 
@@ -54,7 +52,6 @@ class VerifiablePresentationFactory(
         request: PresentationRequestParameters,
         credential: SubjectCredentialStore.StoreEntry,
         disclosedAttributes: Collection<NormalizedJsonPath>,
-        credentialQuery: DCQLCredentialQuery? = null,
     ): KmmResult<CreatePresentationResult> = catching {
         when (credential) {
             is SubjectCredentialStore.StoreEntry.Vc -> createVcPresentation(
@@ -72,7 +69,6 @@ class VerifiablePresentationFactory(
                 IsoPresentation.createPresentation(
                     request = request,
                     credentialAndRequestedClaims = mapOf(credential to disclosedAttributes),
-                    credentialQuery = credentialQuery,
                 )
             }
         }
