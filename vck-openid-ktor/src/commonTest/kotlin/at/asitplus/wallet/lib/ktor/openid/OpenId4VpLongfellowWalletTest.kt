@@ -204,6 +204,7 @@ val OpenId4VpLongfellowWalletTest by testSuite {
                                 doctypeValue = MobileDrivingLicenceScheme.isoDocType,
                                 zkSystemType = nonEmptyListOf(
                                     DCQLZkSystemType(
+                                        id = "test1",
                                         system = "longfellow-libzk-v1",
                                         circuitHash = "137e5a75ce72735a37c8a72da1a8a0a5df8d13365c2ae3d2c2bd6a0e7197c7c6",
                                         numAttributes = 1,
