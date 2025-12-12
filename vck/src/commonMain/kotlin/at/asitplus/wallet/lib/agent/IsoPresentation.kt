@@ -143,12 +143,7 @@ object IsoPresentation {
         credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>,
         credentialQuery: DCQLCredentialQuery?
     ): CreatePresentationResult {
-        val sessionTranscriptBytes = coseCompliantSerializer.encodeToByteArray(
-            request.sessionTranscript
-                ?: throw IllegalStateException("No Session Transcript found!")
-        )
-
-        val now = Clock.System.now().truncateToSeconds()
+        require(request.sessionTranscript != null) {"No or too many documents found!"}
 
         val deviceResponses: List<DeviceResponse> = buildPlainDocuments(
             request = request,
@@ -160,10 +155,6 @@ object IsoPresentation {
                 status = 0U,
             )
         }
-        // Now we already have 1 device response per document. They should each share the same sessionTranscript,
-        // so we can just assemble the session transcript once and then iterate over the list of deviceResponses
-        // and then create a zkps. after we have all of them, we create a _single_ new Document and just put the
-        // derived proofs in to its zkDocuments. We send that single Document back to the requester
 
         val zkDocuments = deviceResponses.map { deviceResponse ->
             val document = deviceResponse.documents?.singleOrNull()

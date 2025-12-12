@@ -26,11 +26,15 @@ import com.benasher44.uuid.uuid4
 import de.infix.testBalloon.framework.core.TestConfig
 import de.infix.testBalloon.framework.core.aroundEach
 import de.infix.testBalloon.framework.core.testSuite
+import io.kotest.inspectors.shouldForAll
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldBeSingleton
 import io.kotest.matchers.collections.shouldHaveSingleElement
 import io.kotest.matchers.collections.shouldNotBeEmpty
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldHave
 import io.kotest.matchers.types.shouldBeInstanceOf
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 
 val OpenId4VpIsoProtocolTest by testSuite {
 
@@ -249,18 +253,22 @@ val OpenId4VpIsoProtocolTest by testSuite {
     }
 
     "Selective Disclosure with mDL using ZK (DCQL with MSO_MDOC_ZK)" {
-        val requestedClaim = MobileDrivingLicenceDataElements.FAMILY_NAME
+        val requestedClaims = setOf(
+            MobileDrivingLicenceDataElements.FAMILY_NAME,
+            MobileDrivingLicenceDataElements.AGE_OVER_18,
+            MobileDrivingLicenceDataElements.GIVEN_NAME,
+        )
         val requestOptions = RequestOptions(
             credentials = setOf(
                 RequestOptionsCredential(
                     credentialScheme = MobileDrivingLicenceScheme,
-                    representation = ConstantIndex.CredentialRepresentation.ISO_MDOC,
-                    requestedAttributes = setOf(requestedClaim),
+                    representation = ISO_MDOC,
+                    requestedAttributes = requestedClaims,
                     zkSystemTypes = nonEmptyListOf(
                         DCQLZkSystemType(
                             system = "longfellow-libzk-v1",
-                            circuitHash = "137e5a75ce72735a37c8a72da1a8a0a5df8d13365c2ae3d2c2bd6a0e7197c7c6",
-                            numAttributes = 1,
+                            circuitHash = "b2211223b954b34a1081e3fbf71b8ea2de28efc888b4be510f532d6ba76c2010",
+                            numAttributes = requestedClaims.size,
                             version = 6,
                         )
                     )
@@ -289,8 +297,8 @@ val OpenId4VpIsoProtocolTest by testSuite {
             .apply {
                 zkDocuments.shouldBeSingleton()
                 zkDocuments.first().apply {
-                    validItems.shouldBeSingleton()
-                    validItems.shouldHaveSingleElement { it.elementIdentifier == requestedClaim }
+                    validItems.map { it.elementIdentifier }.toSet()
+                        .shouldBe(requestedClaims)
                     invalidItems.shouldBeEmpty()
                 }
             }
