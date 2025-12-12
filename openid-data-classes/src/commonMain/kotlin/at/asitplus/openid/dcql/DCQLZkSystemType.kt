@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class DCQLZkSystemType (
     @SerialName("id")
-    val id: String? = null,
+    val id: String,
 
     @SerialName("system")
     val system: String,

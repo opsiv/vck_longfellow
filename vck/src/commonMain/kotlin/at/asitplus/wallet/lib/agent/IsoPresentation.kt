@@ -18,6 +18,7 @@ import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.jsonpath.core.NormalizedJsonPathSegment
 import at.asitplus.openid.CredentialFormatEnum
 import at.asitplus.openid.dcql.DCQLCredentialQuery
+import at.asitplus.openid.dcql.DCQLIsoMdocCredentialMetadataAndValidityConstraints
 import at.asitplus.openid.dcql.DCQLIsoMdocCredentialQuery
 import at.asitplus.openid.truncateToSeconds
 import at.asitplus.signum.indispensable.CryptoPublicKey
@@ -170,9 +171,9 @@ object IsoPresentation {
             val system: String = "longfellow-libzk-v1"
 
             // TODO: differentiate between different zk systems (perhaps using presentation strategy)
-            val isoCredentialQuery = credentialQuery as DCQLIsoMdocCredentialQuery
-            val zkSystemTypes = isoCredentialQuery.meta.zkSystemType
-            val zkSystemType =  zkSystemTypes!!.filter { it.system ==  system }
+            val zkSystemTypes = (credentialQuery?.meta as? DCQLIsoMdocCredentialMetadataAndValidityConstraints)
+                ?.zkSystemType ?: throw IllegalStateException("No zkDocuments found!")
+            val zkSystemType =  zkSystemTypes.filter { it.system == system }
                 .filter { it.numAttributes == attributeCount }
                 .filter {minVersion == null || it.version >= minVersion}
                 .filter {maxVersion == null || it.version <= maxVersion}
@@ -182,7 +183,7 @@ object IsoPresentation {
             // TODO replace ad-hoch conversion with something more abstract that works for all zk systems
             val zkSystemSpec = ZkSystemSpec(
                 system = zkSystemType.system,
-                zkSystemId = zkSystemType.system,
+                zkSystemId = zkSystemType.id.orEmpty(),
                 params = mapOf(
                     "circuit_hash" to zkSystemType.circuitHash
                 ),

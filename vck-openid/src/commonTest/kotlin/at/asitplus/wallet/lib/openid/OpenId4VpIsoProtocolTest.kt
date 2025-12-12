@@ -266,6 +266,7 @@ val OpenId4VpIsoProtocolTest by testSuite {
                     requestedAttributes = requestedClaims,
                     zkSystemTypes = nonEmptyListOf(
                         DCQLZkSystemType(
+                            id = "b2211223b954b34a1081e3fbf71b8ea2de28efc888b4be510f532d6ba76c2010",
                             system = "longfellow-libzk-v1",
                             circuitHash = "b2211223b954b34a1081e3fbf71b8ea2de28efc888b4be510f532d6ba76c2010",
                             numAttributes = requestedClaims.size,
