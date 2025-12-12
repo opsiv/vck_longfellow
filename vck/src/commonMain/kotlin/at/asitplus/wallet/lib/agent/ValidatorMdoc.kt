@@ -1,6 +1,5 @@
 package at.asitplus.wallet.lib.agent
 
-import at.asitplus.data.NonEmptyList
 import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.Document
 import at.asitplus.iso.IssuerSigned
@@ -12,7 +11,6 @@ import at.asitplus.iso.ZkDocument
 import at.asitplus.iso.ZkSignedItem
 import at.asitplus.iso.sha256
 import at.asitplus.iso.wrapInCborTag
-import at.asitplus.openid.dcql.DCQLZkSystemType
 import at.asitplus.openid.truncateToSeconds
 import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.cosef.CoseKey
@@ -33,7 +31,7 @@ import at.asitplus.wallet.lib.data.IsoDocumentParsed
 import at.asitplus.wallet.lib.data.IsoZkDocumentParsed
 import at.asitplus.wallet.lib.data.rfc.tokenStatusList.primitives.TokenStatusValidationResult
 import at.asitplus.wallet.lib.longfellow.Circuit
-import at.asitplus.wallet.lib.longfellow.Proof
+import at.asitplus.wallet.lib.longfellow.IsoMdocLongfellowZKProof
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.builtins.ByteArraySerializer
 import kotlinx.serialization.encodeToByteArray
@@ -60,9 +58,8 @@ class ValidatorMdoc(
     @Throws(IllegalArgumentException::class, CancellationException::class)
     suspend fun verifyDeviceResponse(
         deviceResponse: DeviceResponse,
-        sessionTranscript: SessionTranscript,
         verifyDocumentCallback: suspend (MobileSecurityObject, Document) -> Boolean,
-        validateZkSystemType: ((ZkDocument) -> Boolean)? = null,
+        verifyZkDocumentCallback: ((ZkDocument) -> Boolean)? = null,
     ): VerifyPresentationResult {
         require(deviceResponse.status == 0U) { "status: ${deviceResponse.status}" }
         require(deviceResponse.documents != null || deviceResponse.zkDocuments != null) {
@@ -70,13 +67,8 @@ class ValidatorMdoc(
         }
         val hasZkDocuments = !deviceResponse.zkDocuments.isNullOrEmpty()
 
-        if (hasZkDocuments && validateZkSystemType == null) {
+        if (hasZkDocuments && verifyZkDocumentCallback == null) {
             throw IllegalArgumentException("ZkDocuments in response, but no validation possible")
-        }
-
-        deviceResponse.zkDocuments?.forEach { zkDocument ->
-            val isAllowed = validateZkSystemType?.invoke(zkDocument) ?: false
-            require(isAllowed) { "zkDocument not of any allowed zkSystemType" }
         }
 
         val documents = deviceResponse.documents?.map {
@@ -84,7 +76,7 @@ class ValidatorMdoc(
         } ?: emptyList()
 
         val zkDocuments = deviceResponse.zkDocuments?.map {
-            verifyZkDocument(it, sessionTranscript)
+            verifyZkDocument(it, verifyZkDocumentCallback!!)
         } ?: emptyList()
 
         return VerifyPresentationResult.SuccessIso(
@@ -153,45 +145,15 @@ class ValidatorMdoc(
     @Throws(IllegalArgumentException::class, CancellationException::class)
     suspend fun verifyZkDocument(
         zkDocument: ZkDocument,
-        sessionTranscript: SessionTranscript,
+        verifyZkDocumentCallback: suspend ((ZkDocument) -> Boolean)
     ): IsoZkDocumentParsed {
-        // extract Issuer signing key
-        val certificateHead = zkDocument.zkDocumentDataBytes.value.certificateChain?.firstOrNull()
-            ?: throw IllegalArgumentException("No issuer certificate in header")
-        val x509Certificate = X509Certificate.decodeFromDerSafe(certificateHead).getOrElse {
-            throw IllegalArgumentException("Could not parse issuer certificate from header", it)
-        }
-        val issuerKey = x509Certificate.decodedPublicKey.getOrNull() as? CryptoPublicKey.EC
-            ?: throw IllegalArgumentException("Could not parse key from certificate")
-
-        val docType = zkDocument.zkDocumentDataBytes.value.docType
-        val circuit = Circuit(
-            // TODO: automatically gather the correct systemName from somewhere else.
-            //  Better let circuit be so abstract that it just tries different registered(=available) providers
-            systemName = "longfellow-libzk-v1",
-            circuitId = zkDocument.zkDocumentDataBytes.value.zkSystemId
-        )
-        val namespaces = zkDocument.zkDocumentDataBytes.value.issuerSigned ?: emptyMap()
-        val timestamp = zkDocument.zkDocumentDataBytes.value.timestamp.truncateToSeconds()
-        val rawProof = zkDocument.proof
-        val transcriptBytes = coseCompliantSerializer.encodeToByteArray(sessionTranscript)
-
-        val proof = Proof(
-            circuit = circuit,
-            transcript = transcriptBytes,
-            issuerPublicKey = issuerKey,
-            timestamp = timestamp,
-            namespaces = namespaces,
-            zkProof = rawProof,
-            docType = docType
-        )
-
         val allItems = zkDocument.zkDocumentDataBytes.value.issuerSigned
             ?.values
             ?.flatMap { it.entries }
             ?: emptyList()
 
-        val (validItems, invalidItems) = if (proof.verify()) {
+        // All-or-nothing approach due to the zk proof approach
+        val (validItems, invalidItems) = if (verifyZkDocumentCallback.invoke(zkDocument)) {
             allItems to emptyList()
         } else {
             emptyList<ZkSignedItem>() to allItems
@@ -206,7 +168,7 @@ class ValidatorMdoc(
             freshnessSummary = CredentialFreshnessSummary.Mdoc(
                 timelinessValidationSummary = CredentialTimelinessValidationSummary.Mdoc(
                     details = MdocTimelinessValidationDetails(
-                        evaluationTime = timestamp,
+                        evaluationTime = zkDocument.zkDocumentDataBytes.value.timestamp,
                         msoTimelinessValidationSummary = null,
                     )
                 ),

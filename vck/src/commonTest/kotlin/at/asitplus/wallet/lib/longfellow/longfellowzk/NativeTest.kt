@@ -1,42 +1,17 @@
 package at.asitplus.wallet.lib.longfellow.longfellowzk
 
 import at.asitplus.dcapi.DCAPIHandover
-import at.asitplus.iso.DeviceAuth
-import at.asitplus.iso.DeviceKeyInfo
-import at.asitplus.iso.DeviceNameSpaces
 import at.asitplus.iso.DeviceResponse
-import at.asitplus.iso.DeviceSigned
-import at.asitplus.iso.Document
-import at.asitplus.iso.IssuerSigned
-import at.asitplus.iso.IssuerSignedItem
-import at.asitplus.iso.MobileSecurityObject
 import at.asitplus.iso.SessionTranscript
-import at.asitplus.iso.ValidityInfo
-import at.asitplus.iso.ValueDigest
-import at.asitplus.iso.ValueDigestList
-import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.CryptoPublicKey.EC.Companion.fromUncompressed
 import at.asitplus.signum.indispensable.ECCurve
-import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.testballoon.invoke
-import at.asitplus.wallet.lib.agent.EphemeralKeyWithoutCert
-import at.asitplus.wallet.lib.cbor.CoseHeaderCertificate
-import at.asitplus.wallet.lib.cbor.SignCose
-import at.asitplus.wallet.lib.longfellow.Circuit
 import at.asitplus.wallet.lib.longfellow.MdocProof
-import at.asitplus.wallet.lib.longfellow.Proof
 import de.infix.testBalloon.framework.core.testSuite
 import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.matchers.booleans.shouldBeTrue
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.cbor.Cbor
-import kotlinx.serialization.encodeToByteArray
-import java.lang.Thread.sleep
 import kotlin.io.encoding.Base64
-import kotlin.random.Random
-import kotlin.time.Clock
-import kotlin.time.Duration
 
 val NativeTest by testSuite {
 //    "Present and verify" {

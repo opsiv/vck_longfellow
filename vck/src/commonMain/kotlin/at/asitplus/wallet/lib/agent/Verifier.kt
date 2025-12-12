@@ -65,23 +65,11 @@ interface Verifier {
      * Verifies a presentation of some credentials in [ConstantIndex.CredentialRepresentation.ISO_MDOC] from a holder,
      * with a challenge validated by the callback in [verifyDocument] (i.e. device authentication for OpenID4VP).
      */
-    // TODO: change description and think about whether we want to expose sessionTranscript directly
     suspend fun verifyPresentationIsoMdoc(
         input: DeviceResponse,
-        sessionTranscript: SessionTranscript, // TODO: remove this agian, wehn the callback approach is done
         verifyDocument: suspend (MobileSecurityObject, Document) -> Boolean,
-        // TODO: this should eventually become verifyZkDocument and we outsource the whole verifiaction logic to the caller
-        //  Im thinking of having a full proof class assembled except for the session transcript which is instead
-        //  provided in the callback and then just calls verify on the Proof:
-        //    val verifyZkDocument: ((IsoMdocProof) -> Boolean) =
-        //        it.zkType in allowedZkTypes && it.verify(sessionTranscript)
-        //  that could work very well if the caller knows how to map the request allowed zk types to the
-        //  one used in the proof and it would also allow us not to pass sessionTranscript at all
-
-        validateZkSystemType: ((ZkDocument) -> Boolean)? = null,
+        verifyZkDocument: ((ZkDocument) -> Boolean)? = null,
     ): VerifyPresentationResult
-
-
 
     sealed class VerifyPresentationResult {
         data class Success(

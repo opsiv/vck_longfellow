@@ -4,6 +4,7 @@ import at.asitplus.iso.DeviceAuth
 import at.asitplus.iso.DeviceNameSpaces
 import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.DeviceSigned
+import at.asitplus.iso.DeviceSignedItemList
 import at.asitplus.iso.ZkSignedItem
 import at.asitplus.iso.ZkSignedList
 import at.asitplus.iso.Document
@@ -21,11 +22,9 @@ import at.asitplus.openid.truncateToSeconds
 import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
-import at.asitplus.signum.indispensable.cosef.toCoseKey
 import at.asitplus.signum.indispensable.pki.X509Certificate
-import at.asitplus.wallet.lib.cbor.publicKey
 import at.asitplus.wallet.lib.longfellow.Circuit
-import at.asitplus.wallet.lib.longfellow.Proof
+import at.asitplus.wallet.lib.longfellow.IsoMdocLongfellowZKProof
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.encodeToByteArray
 import kotlin.collections.component1
@@ -170,24 +169,8 @@ object IsoPresentation {
             val document = deviceResponse.documents?.singleOrNull()
                 ?: throw IllegalStateException("No or too many documents found!")
 
-            if (!isIso8601Compliant(document.issuerSigned.issuerAuth.payload?.validityInfo))
-                throw IllegalStateException("Timestamps do not follow ISO-8601 (precision to seconds)")
-
-            val msoX5Chain = document.issuerSigned.issuerAuth.unprotectedHeader?.certificateChain
-
-            val certificateHead = msoX5Chain?.firstOrNull()
-                ?: throw IllegalArgumentException("No issuer certificate in header")
-            val x509Certificate = X509Certificate.decodeFromDerSafe(certificateHead).getOrElse {
-                throw IllegalArgumentException("Could not parse issuer certificate from header", it)
-            }
-            val issuerKey = x509Certificate.decodedPublicKey.getOrNull() as? CryptoPublicKey.EC
-                ?: throw IllegalArgumentException("Could not parse key from certificate")
-
-
             val namespaces = document.issuerSigned.namespaces.toDisclosed() ?: emptyMap()
-            val doctype = document.docType
             val attributeCount = namespaces.values.sumOf { it.entries.size }
-            val droBytes = coseCompliantSerializer.encodeToByteArray(deviceResponse)
 
             // TODO: replace these and set them for each strategy!
             val maxVersion: Int? = null
@@ -210,31 +193,13 @@ object IsoPresentation {
                 zkSystemType.circuitHash
             )
 
-            val proof = Proof.generate(
+            val proof = IsoMdocLongfellowZKProof.generate(
                 circuit = circuit,
-                transcript = sessionTranscriptBytes,
-                issuerPublicKey = issuerKey,
-                timestamp = now,
-                namespaces = namespaces,
-                deviceResponseObject = droBytes,
-                docType = doctype
+                sessionTranscript = request.sessionTranscript,
+                deviceResponse = deviceResponse,
             )
 
-            ZkDocument(
-                zkDocumentDataBytes = ByteStringWrapper(
-                    ZkDocumentData(
-                        docType = proof.docType,
-                        zkSystemId = proof.circuit.circuitId,
-                        timestamp = proof.timestamp,
-                        issuerSigned = namespaces,
-                        // TODO: maybe adjust deviceSigned, since it might affect the sessionTranscript if deviceNameSpaces is non-empty in the original doc
-                        deviceSigned = emptyMap(),
-                        certificateChain = msoX5Chain
-                    )
-                ),
-                proof = proof.zkProof,
-            )
-            // TODO there needs to be a try-catch thing to handle documentErrors (and add them to document errors)
+            proof.toZkDocument()
         }
 
         return CreatePresentationResult.DeviceResponse(
@@ -248,15 +213,9 @@ object IsoPresentation {
 
     }
 
-    private fun isIso8601Compliant(validityInfo: ValidityInfo?): Boolean {
-        return validityInfo?.let{
-            it.validFrom.nanosecondsOfSecond == 0 &&
-                    it.validUntil.nanosecondsOfSecond == 0 &&
-                    it.signed.nanosecondsOfSecond == 0
-        } ?: false
-    }
-}
 
+}
+@JvmName("toIssuerDisclosed")
 fun Map<String, IssuerSignedList>?.toDisclosed(): Map<String, ZkSignedList>? {
     return this?.mapValues { (_, issuerList) ->
         ZkSignedList(
@@ -264,6 +223,20 @@ fun Map<String, IssuerSignedList>?.toDisclosed(): Map<String, ZkSignedList>? {
                 ZkSignedItem(
                     elementIdentifier = entry.value.elementIdentifier,
                     elementValue = entry.value.elementValue
+                )
+            }
+        )
+    }
+}
+
+@JvmName("toDeviceDisclosed")
+fun Map<String, DeviceSignedItemList>?.toDisclosed(): Map<String, ZkSignedList>? {
+    return this?.mapValues { (_, deviceSignedList) ->
+        ZkSignedList(
+            entries = deviceSignedList.entries.map { entry ->
+                ZkSignedItem(
+                    elementIdentifier = entry.key,
+                    elementValue = entry.value
                 )
             }
         )

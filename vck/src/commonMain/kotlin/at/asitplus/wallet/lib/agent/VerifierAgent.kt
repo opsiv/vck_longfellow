@@ -1,14 +1,12 @@
 package at.asitplus.wallet.lib.agent
 
 import at.asitplus.catchingUnwrapped
-import at.asitplus.data.NonEmptyList
 import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.Document
 import at.asitplus.iso.MobileSecurityObject
 import at.asitplus.iso.SessionTranscript
 import at.asitplus.iso.ZkDocument
 import at.asitplus.openid.TransactionDataBase64Url
-import at.asitplus.openid.dcql.DCQLZkSystemType
 import at.asitplus.signum.indispensable.josef.JwsSigned
 import at.asitplus.wallet.lib.agent.Verifier.VerifyPresentationResult
 import at.asitplus.wallet.lib.data.VerifiablePresentationJws
@@ -50,11 +48,10 @@ class VerifierAgent(
 
     override suspend fun verifyPresentationIsoMdoc(
         input: DeviceResponse,
-        sessionTranscript: SessionTranscript,
         verifyDocument: suspend (MobileSecurityObject, Document) -> Boolean,
-        validateZkSystemType: ((ZkDocument) -> Boolean)?,
+        verifyZkDocument: ((ZkDocument) -> Boolean)?
     ): VerifyPresentationResult = catchingUnwrapped {
-        validatorMdoc.verifyDeviceResponse(input, sessionTranscript, verifyDocument, validateZkSystemType)
+        validatorMdoc.verifyDeviceResponse(input,verifyDocument, verifyZkDocument)
     }.getOrElse {
         VerifyPresentationResult.ValidationError(it)
     }
