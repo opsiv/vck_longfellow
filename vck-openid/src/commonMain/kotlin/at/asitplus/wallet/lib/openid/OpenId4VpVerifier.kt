@@ -65,6 +65,8 @@ import at.asitplus.wallet.lib.cbor.VerifyCoseSignatureWithKeyFun
 import at.asitplus.wallet.lib.data.VerifiablePresentationJws
 import at.asitplus.wallet.lib.data.toBase64UrlJsonString
 import at.asitplus.wallet.lib.data.vckJsonSerializer
+import at.asitplus.wallet.lib.isoMdocZk.IsoMdocProofRegistry
+import at.asitplus.wallet.lib.isoMdocZk.IsoMdocZkProof
 import at.asitplus.wallet.lib.jws.DecryptJwe
 import at.asitplus.wallet.lib.jws.DecryptJweFun
 import at.asitplus.wallet.lib.jws.JwsContentTypeConstants
@@ -74,7 +76,6 @@ import at.asitplus.wallet.lib.jws.SignJwt
 import at.asitplus.wallet.lib.jws.SignJwtFun
 import at.asitplus.wallet.lib.jws.VerifyJwsObject
 import at.asitplus.wallet.lib.jws.VerifyJwsObjectFun
-import at.asitplus.wallet.lib.IsoMdocZk.IsoMdocLongfellowZKProof
 import at.asitplus.wallet.lib.oidvci.DefaultMapStore
 import at.asitplus.wallet.lib.oidvci.DefaultNonceService
 import at.asitplus.wallet.lib.oidvci.MapStore
@@ -701,7 +702,7 @@ class OpenId4VpVerifier(
     }
 
     /**
-     * Performs verification of the [IsoMdocLongfellowZKProof]
+     * Performs verification of the [IsoMdocZkProof]
      */
     private fun verifyZkDocument(
         mdocGeneratedNonce: String,
@@ -715,7 +716,7 @@ class OpenId4VpVerifier(
                 Napier.d("zkDocument not of any allowed zkSystemType")
                 false
             } else {
-                val proof = IsoMdocLongfellowZKProof(
+                val proof = IsoMdocProofRegistry.load(
                     zkDocument = zkDocument,
                     sessionTranscript = calcSessionTranscriptOpenId4VpFinal(
                         clientId = clientId,
@@ -723,7 +724,7 @@ class OpenId4VpVerifier(
                         nonce = nonce,
                         encrypted = mdocGeneratedNonce.isNotEmpty()
                     ),
-                    zkSystem = zkSystemSpec
+                    zkSystemSpec = zkSystemSpec
                 )
                 proof.verify() 
             }

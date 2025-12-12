@@ -10,28 +10,18 @@ import at.asitplus.iso.ZkSignedList
 import at.asitplus.iso.Document
 import at.asitplus.iso.IssuerSigned
 import at.asitplus.iso.IssuerSignedList
-import at.asitplus.iso.ValidityInfo
-import at.asitplus.iso.ZkDocument
-import at.asitplus.iso.ZkDocumentData
 import at.asitplus.iso.ZkSystemSpec
 import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.jsonpath.core.NormalizedJsonPathSegment
 import at.asitplus.openid.CredentialFormatEnum
 import at.asitplus.openid.dcql.DCQLCredentialQuery
 import at.asitplus.openid.dcql.DCQLIsoMdocCredentialMetadataAndValidityConstraints
-import at.asitplus.openid.dcql.DCQLIsoMdocCredentialQuery
-import at.asitplus.openid.truncateToSeconds
-import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
-import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
-import at.asitplus.signum.indispensable.pki.X509Certificate
-import at.asitplus.wallet.lib.longfellow.Circuit
-import at.asitplus.wallet.lib.IsoMdocZk.IsoMdocLongfellowZKProof
+import at.asitplus.wallet.lib.isoMdocZk.IsoMdocProofRegistry
+import at.asitplus.wallet.lib.isoMdocZk.IsoMdocZkProof
 import io.github.aakira.napier.Napier
-import kotlinx.serialization.encodeToByteArray
 import kotlin.collections.component1
 import kotlin.collections.component2
-import kotlin.time.Clock
 
 object IsoPresentation {
     suspend fun createPresentation(
@@ -189,10 +179,10 @@ object IsoPresentation {
                 ),
             )
 
-            val proof = IsoMdocLongfellowZKProof.generate(
+            val proof = IsoMdocProofRegistry.generate(
                 sessionTranscript = request.sessionTranscript,
                 deviceResponse = deviceResponse,
-                zkSystem = zkSystemSpec,
+                zkSystemSpec = zkSystemSpec,
             )
 
             proof.toZkDocument()

@@ -24,7 +24,6 @@ import at.asitplus.openid.dcql.DCQLZkSystemType
 import at.asitplus.openid.truncateToSeconds
 import at.asitplus.signum.indispensable.josef.io.joseCompliantSerializer
 import at.asitplus.wallet.eupid.EuPidScheme
-import at.asitplus.wallet.lib.agent.ClaimToBeIssued
 import at.asitplus.wallet.lib.agent.CredentialToBeIssued
 import at.asitplus.wallet.lib.agent.EphemeralKeyWithSelfSignedCert
 import at.asitplus.wallet.lib.agent.EphemeralKeyWithoutCert
@@ -204,7 +203,7 @@ val OpenId4VpLongfellowWalletTest by testSuite {
                                 doctypeValue = MobileDrivingLicenceScheme.isoDocType,
                                 zkSystemType = nonEmptyListOf(
                                     DCQLZkSystemType(
-                                        id = "test1",
+                                        id = "137e5a75ce72735a37c8a72da1a8a0a5df8d13365c2ae3d2c2bd6a0e7197c7c6",
                                         system = "longfellow-libzk-v1",
                                         circuitHash = "137e5a75ce72735a37c8a72da1a8a0a5df8d13365c2ae3d2c2bd6a0e7197c7c6",
                                         numAttributes = 1,
@@ -279,6 +278,7 @@ val OpenId4VpLongfellowWalletTest by testSuite {
                                    "doctype_value" : "org.iso.18013.5.1.mDL",
                                    "zk_system_type" : [
                                        {
+                                           "id" : "137e5a75ce72735a37c8a72da1a8a0a5df8d13365c2ae3d2c2bd6a0e7197c7c6",
                                            "system" : "longfellow-libzk-v1",
                                            "circuit_hash" : "137e5a75ce72735a37c8a72da1a8a0a5df8d13365c2ae3d2c2bd6a0e7197c7c6",
                                            "num_attributes" : 1,
@@ -352,8 +352,6 @@ val OpenId4VpLongfellowWalletTest by testSuite {
         }
     }
 }
-
-private fun Map.Entry<String, Any>.toClaimToBeIssued(): ClaimToBeIssued = ClaimToBeIssued(key, value)
 
 private fun Map.Entry<String, Any>.toIssuerSignedItem(): IssuerSignedItem =
     IssuerSignedItem(0U, Random.nextBytes(16), key, value)

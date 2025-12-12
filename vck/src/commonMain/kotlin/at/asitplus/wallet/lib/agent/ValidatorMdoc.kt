@@ -5,14 +5,11 @@ import at.asitplus.iso.Document
 import at.asitplus.iso.IssuerSigned
 import at.asitplus.iso.IssuerSignedItem
 import at.asitplus.iso.MobileSecurityObject
-import at.asitplus.iso.SessionTranscript
 import at.asitplus.iso.ValueDigestList
 import at.asitplus.iso.ZkDocument
 import at.asitplus.iso.ZkSignedItem
 import at.asitplus.iso.sha256
 import at.asitplus.iso.wrapInCborTag
-import at.asitplus.openid.truncateToSeconds
-import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.cosef.CoseKey
 import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
@@ -30,11 +27,8 @@ import at.asitplus.wallet.lib.cbor.VerifyCoseSignatureWithKeyFun
 import at.asitplus.wallet.lib.data.IsoDocumentParsed
 import at.asitplus.wallet.lib.data.IsoZkDocumentParsed
 import at.asitplus.wallet.lib.data.rfc.tokenStatusList.primitives.TokenStatusValidationResult
-import at.asitplus.wallet.lib.longfellow.Circuit
-import at.asitplus.wallet.lib.IsoMdocZk.IsoMdocLongfellowZKProof
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.builtins.ByteArraySerializer
-import kotlinx.serialization.encodeToByteArray
 import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.coroutines.cancellation.CancellationException

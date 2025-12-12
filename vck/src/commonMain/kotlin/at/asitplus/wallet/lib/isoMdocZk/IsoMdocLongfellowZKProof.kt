@@ -1,4 +1,4 @@
-package at.asitplus.wallet.lib.IsoMdocZk
+package at.asitplus.wallet.lib.isoMdocZk
 
 import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.SessionTranscript
@@ -19,40 +19,26 @@ import kotlinx.serialization.encodeToByteArray
 import kotlin.time.Clock
 import kotlin.time.Instant
 
-class IsoMdocLongfellowZKProof ( // TODO: inherit from IsoMdocZkProof
-    val zkSystem: ZkSystemSpec,
+class IsoMdocLongfellowZKProof (
+    override val zkSystemSpec: ZkSystemSpec,
     zkDocument: ZkDocument,
     val sessionTranscript: SessionTranscript,
-) {
+) : IsoMdocZkProof() {
     val circuit: Circuit
     val issuerKey: CryptoPublicKey.EC
-    val timestamp: Instant
-    val issuerSignedNamespaces: Map<String, ZkSignedList>
-    val deviceSignedNamespaces: Map<String, ZkSignedList>
-    val rawProof: ByteArray
-    val docType: String
-    val msoX5Chain: List<ByteArray>?
+    override val timestamp: Instant
+    override val issuerSignedNamespaces: Map<String, ZkSignedList>
+    override val deviceSignedNamespaces: Map<String, ZkSignedList>
+    override val rawProof: ByteArray
+    override val docType: String
+    override val msoX5Chain: List<ByteArray>?
 
     init {
-        // TODO: Consider more elaborate checks (versions etc)
-        require (SYSTEM == zkSystem.system && zkSystem.params.keys.contains(CIRCUIT_HASH)) {
-            "Incompatible ZkSystem, ${zkSystem.system}"
-        }
-        circuit = Circuit(
-            systemName = SYSTEM,
-            circuitId = zkSystem.params.getOrElse(CIRCUIT_HASH) {
-                throw IllegalArgumentException("No circuit hash provided")
-            }
-        )
+        validateSystem(zkSystemSpec)
+        circuit = buildCircuit(zkSystemSpec)
 
         msoX5Chain = zkDocument.zkDocumentDataBytes.value.certificateChain
-        val certificateHead = msoX5Chain?.firstOrNull()
-            ?: throw IllegalArgumentException("No issuer certificate in header")
-        val x509Certificate = X509Certificate.Companion.decodeFromDerSafe(certificateHead).getOrElse {
-            throw IllegalArgumentException("Could not parse issuer certificate from header", it)
-        }
-        issuerKey = x509Certificate.decodedPublicKey.getOrNull() as? CryptoPublicKey.EC
-            ?: throw IllegalArgumentException("Could not parse key from certificate")
+        issuerKey = extractIssuerKey(msoX5Chain)
 
         // TODO: consider requiring that deviceSigned is null, because Longfellow doesn't support them yet
         deviceSignedNamespaces = zkDocument.zkDocumentDataBytes.value.deviceSigned ?: emptyMap()
@@ -67,73 +53,42 @@ class IsoMdocLongfellowZKProof ( // TODO: inherit from IsoMdocZkProof
     private val transcriptBytes = coseCompliantSerializer.encodeToByteArray(sessionTranscript)
 
 
-    fun verify(): Boolean {
+    override fun verify(): Boolean {
         return NativeLibrary.verifyProof(
             circuit.raw, issuerKey, transcriptBytes, issuerSignedNamespaces,
             timestamp, rawProof, docType, circuit.handle
         ).getOrThrow()
     }
 
-    fun toZkDocument(): ZkDocument = ZkDocument(
-        zkDocumentDataBytes = ByteStringWrapper(
-            ZkDocumentData(
-                docType = docType,
-                zkSystemId = circuit.circuitId,
-                timestamp = timestamp,
-                issuerSigned = issuerSignedNamespaces,
-                deviceSigned = deviceSignedNamespaces,
-                certificateChain = msoX5Chain
-            )
-        ),
-        proof = rawProof,
-    )
+    companion object Factory : IsoMdocZkProofFactory {
+        private const val circuitHashIdentifier = "circuit_hash"
+        const val systemIdentifier = "longfellow-libzk-v1"
 
-    companion object {
-        private val CIRCUIT_HASH = "circuit_hash"
-        private val SYSTEM = "longfellow-libzk-v1"
-
-        // TODO: delete this. It is just a sanity check, because during development, we didnt properly follow the ISO spec
-        private fun isIso8601Compliant(validityInfo: ValidityInfo?): Boolean {
-            return validityInfo?.let{
-                it.validFrom.nanosecondsOfSecond == 0 &&
-                        it.validUntil.nanosecondsOfSecond == 0 &&
-                        it.signed.nanosecondsOfSecond == 0
-            } ?: false
+        override fun supports(zkSystemSpec: ZkSystemSpec): Boolean {
+            // TODO: Consider more validation eg with
+            //  attribute count and circuit validation with
+            //  val attributeCount = namespaces.values.sumOf { it.entries.size }
+            return zkSystemSpec.system == systemIdentifier &&
+                    zkSystemSpec.params.containsKey(circuitHashIdentifier)
         }
 
-        fun generate(
-            zkSystem: ZkSystemSpec,
+        override fun generate(
+            zkSystemSpec: ZkSystemSpec,
             sessionTranscript: SessionTranscript,
             deviceResponse: DeviceResponse,
-        ): IsoMdocLongfellowZKProof {
+        ): IsoMdocZkProof {
             val document = deviceResponse.documents?.singleOrNull()
                 ?: throw IllegalStateException("No or too many documents found!")
 
+            // TODO: remove this check
             if (!isIso8601Compliant(document.issuerSigned.issuerAuth.payload?.validityInfo))
                 throw IllegalStateException("Timestamps do not follow ISO-8601 (precision to seconds)")
 
-            // TODO: attribute count and circuit validation with
-            //  val attributeCount = namespaces.values.sumOf { it.entries.size }
-            require (SYSTEM == zkSystem.system && zkSystem.params.keys.contains(CIRCUIT_HASH)) {
-                "Incompatible ZkSystem, ${zkSystem.system}"
-            }
-            val circuit = Circuit(
-                systemName = SYSTEM,
-                circuitId = zkSystem.params.getOrElse(CIRCUIT_HASH) {
-                    throw IllegalArgumentException("No circuit hash provided")
-                }
-            )
-
+            validateSystem(zkSystemSpec)
+            val circuit = buildCircuit(zkSystemSpec)
 
             val msoX5Chain = document.issuerSigned.issuerAuth.unprotectedHeader?.certificateChain
-
-            val certificateHead = msoX5Chain?.firstOrNull()
-                ?: throw IllegalArgumentException("No issuer certificate in header")
-            val x509Certificate = X509Certificate.Companion.decodeFromDerSafe(certificateHead).getOrElse {
-                throw IllegalArgumentException("Could not parse issuer certificate from header", it)
-            }
-            val issuerKey = x509Certificate.decodedPublicKey.getOrNull() as? CryptoPublicKey.EC
-                ?: throw IllegalArgumentException("Could not parse key from certificate")
+            val issuerKey = extractIssuerKey(msoX5Chain)
 
             val issuerSignedNamespaces = document.issuerSigned.namespaces.toDisclosed() ?: emptyMap()
             val docType = document.docType
@@ -166,8 +121,54 @@ class IsoMdocLongfellowZKProof ( // TODO: inherit from IsoMdocZkProof
             return IsoMdocLongfellowZKProof(
                 zkDocument = zkDocument,
                 sessionTranscript = sessionTranscript,
-                zkSystem = zkSystem,
+                zkSystemSpec = zkSystemSpec,
             )
         }
+
+        override fun load(
+            zkDocument: ZkDocument,
+            sessionTranscript: SessionTranscript,
+            zkSystemSpec: ZkSystemSpec
+        ): IsoMdocZkProof {
+            return IsoMdocLongfellowZKProof(
+                zkDocument = zkDocument,
+                sessionTranscript = sessionTranscript,
+                zkSystemSpec = zkSystemSpec
+            )
+        }
+
+        private fun validateSystem(zkSystemSpec: ZkSystemSpec) {
+            require (supports(zkSystemSpec)) {
+                "Incompatible ZkSystem, ${zkSystemSpec.system}"
+            }
+        }
+
+        private fun buildCircuit(zkSystemSpec: ZkSystemSpec) = Circuit(
+            systemName = systemIdentifier,
+            circuitId = zkSystemSpec.params.getOrElse(circuitHashIdentifier) {
+                throw IllegalArgumentException("No circuit hash provided")
+            }
+        )
+
+        // TODO: consider checking the whole list
+        private fun extractIssuerKey(msoX5Chain: List<ByteArray>?): CryptoPublicKey.EC {
+            val certificateHead = msoX5Chain?.firstOrNull()
+                ?: throw IllegalArgumentException("No issuer certificate in header")
+            val x509Certificate = X509Certificate.decodeFromDerSafe(certificateHead).getOrElse {
+                throw IllegalArgumentException("Could not parse issuer certificate from header", it)
+            }
+            val issuerKey = x509Certificate.decodedPublicKey.getOrNull() as? CryptoPublicKey.EC
+                ?: throw IllegalArgumentException("Could not parse key from certificate")
+            return issuerKey
+        }
     }
+}
+
+// TODO: delete this. It is just a sanity check, because during development, we didnt properly follow the ISO spec
+private fun isIso8601Compliant(validityInfo: ValidityInfo?): Boolean {
+    return validityInfo?.let{
+        it.validFrom.nanosecondsOfSecond == 0 &&
+                it.validUntil.nanosecondsOfSecond == 0 &&
+                it.signed.nanosecondsOfSecond == 0
+    } ?: false
 }
