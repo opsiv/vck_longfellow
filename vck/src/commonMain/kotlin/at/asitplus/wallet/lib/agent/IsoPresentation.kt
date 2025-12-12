@@ -173,7 +173,7 @@ object IsoPresentation {
             // TODO replace ad-hoch conversion with something more abstract that works for all zk systems
             val zkSystemSpec = ZkSystemSpec(
                 system = zkSystemType.system,
-                zkSystemId = zkSystemType.id.orEmpty(),
+                zkSystemId = zkSystemType.id,
                 params = mapOf(
                     "circuit_hash" to zkSystemType.circuitHash
                 ),

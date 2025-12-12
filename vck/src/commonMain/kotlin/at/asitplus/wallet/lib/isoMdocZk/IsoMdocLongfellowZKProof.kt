@@ -36,18 +36,17 @@ class IsoMdocLongfellowZKProof (
     init {
         validateSystem(zkSystemSpec)
         circuit = buildCircuit(zkSystemSpec)
-
+        timestamp = zkDocument.zkDocumentDataBytes.value.timestamp
+        require(timestamp.nanosecondsOfSecond == 0) {"Timestamp does not conform to Iso 8601"}
         msoX5Chain = zkDocument.zkDocumentDataBytes.value.certificateChain
         issuerKey = extractIssuerKey(msoX5Chain)
+        docType = zkDocument.zkDocumentDataBytes.value.docType
+        rawProof = zkDocument.proof
 
         // TODO: consider requiring that deviceSigned is null, because Longfellow doesn't support them yet
         deviceSignedNamespaces = zkDocument.zkDocumentDataBytes.value.deviceSigned ?: emptyMap()
         issuerSignedNamespaces = zkDocument.zkDocumentDataBytes.value.issuerSigned ?: emptyMap()
 
-        docType = zkDocument.zkDocumentDataBytes.value.docType
-        // TODO: check if timestamp is fine, and throw if not
-        timestamp = zkDocument.zkDocumentDataBytes.value.timestamp.truncateToSeconds()
-        rawProof = zkDocument.proof
     }
 
     private val transcriptBytes = coseCompliantSerializer.encodeToByteArray(sessionTranscript)
