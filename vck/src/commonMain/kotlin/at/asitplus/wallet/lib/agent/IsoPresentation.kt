@@ -13,6 +13,7 @@ import at.asitplus.iso.IssuerSignedList
 import at.asitplus.iso.ValidityInfo
 import at.asitplus.iso.ZkDocument
 import at.asitplus.iso.ZkDocumentData
+import at.asitplus.iso.ZkSystemSpec
 import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.jsonpath.core.NormalizedJsonPathSegment
 import at.asitplus.openid.CredentialFormatEnum
@@ -24,7 +25,7 @@ import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.signum.indispensable.pki.X509Certificate
 import at.asitplus.wallet.lib.longfellow.Circuit
-import at.asitplus.wallet.lib.longfellow.IsoMdocLongfellowZKProof
+import at.asitplus.wallet.lib.IsoMdocZk.IsoMdocLongfellowZKProof
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.encodeToByteArray
 import kotlin.collections.component1
@@ -178,16 +179,19 @@ object IsoPresentation {
                 .maxByOrNull { it.version }
                 ?:  throw IllegalStateException("No matching supported zkSystemType!")
 
-            // TODO: handle invalid circtuit specs
-            val circuit = Circuit(
-                zkSystemType.system,
-                zkSystemType.circuitHash
+            // TODO replace ad-hoch conversion with something more abstract that works for all zk systems
+            val zkSystemSpec = ZkSystemSpec(
+                system = zkSystemType.system,
+                zkSystemId = zkSystemType.system,
+                params = mapOf(
+                    "circuit_hash" to zkSystemType.circuitHash
+                ),
             )
 
             val proof = IsoMdocLongfellowZKProof.generate(
-                circuit = circuit,
                 sessionTranscript = request.sessionTranscript,
                 deviceResponse = deviceResponse,
+                zkSystem = zkSystemSpec,
             )
 
             proof.toZkDocument()

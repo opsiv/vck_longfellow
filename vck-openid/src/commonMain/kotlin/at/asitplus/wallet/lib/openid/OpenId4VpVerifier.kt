@@ -19,6 +19,7 @@ import at.asitplus.iso.OpenId4VpHandoverInfo
 import at.asitplus.iso.ResponseUriToHash
 import at.asitplus.iso.SessionTranscript
 import at.asitplus.iso.ZkDocument
+import at.asitplus.iso.ZkSystemSpec
 import at.asitplus.iso.sha256
 import at.asitplus.iso.wrapInCborTag
 import at.asitplus.jsonpath.JsonPath
@@ -73,7 +74,7 @@ import at.asitplus.wallet.lib.jws.SignJwt
 import at.asitplus.wallet.lib.jws.SignJwtFun
 import at.asitplus.wallet.lib.jws.VerifyJwsObject
 import at.asitplus.wallet.lib.jws.VerifyJwsObjectFun
-import at.asitplus.wallet.lib.longfellow.IsoMdocLongfellowZKProof
+import at.asitplus.wallet.lib.IsoMdocZk.IsoMdocLongfellowZKProof
 import at.asitplus.wallet.lib.oidvci.DefaultMapStore
 import at.asitplus.wallet.lib.oidvci.DefaultNonceService
 import at.asitplus.wallet.lib.oidvci.MapStore
@@ -561,16 +562,23 @@ class OpenId4VpVerifier(
                 // This is very specific to the dcql flow, presentation exchange flow might look very different!
                 // Other flows could for example use a map of documenttypes to allowed zksystem type and this
                 // callback would have to evaluate them
-                val validateZkSystemType: ((ZkDocument) -> Boolean)? =
+                val validateZkSystemType: ((ZkDocument) -> ZkSystemSpec?)? =
                     if (allowedZkSystemTypes != null) {
                         // Define the function
                         { zkDoc: ZkDocument ->
                             // Extract the circuit ID from the document
                             val usedCircuitId = zkDoc.zkDocumentDataBytes.value.zkSystemId
 
-                            // Check if any allowed type matches this circuit ID
-                            allowedZkSystemTypes.any { allowedType ->
-                                allowedType.circuitHash == usedCircuitId
+                            allowedZkSystemTypes.firstOrNull {
+                                it.id == usedCircuitId
+                            }?.let {
+                                ZkSystemSpec(
+                                    zkSystemId = it.id!!,
+                                    system = it.system,
+                                    params = mapOf(
+                                        "circuit_hash" to it.circuitHash,
+                                    )
+                                )
                             }
                         }
                     } else null
@@ -643,7 +651,7 @@ class OpenId4VpVerifier(
         clientId: String?,
         responseUrl: String?,
         transactionData: List<TransactionDataBase64Url>?,
-        validateZkSystemType: ((ZkDocument) -> Boolean)? = null,
+        validateZkSystemType: ((ZkDocument) -> ZkSystemSpec?)? = null,
     ) = when (claimFormat) {
         ClaimFormat.JWT_SD, ClaimFormat.SD_JWT -> verifier.verifyPresentationSdJwt(
             input = SdJwtSigned.parseCatching(relatedPresentation.jsonPrimitive.content).getOrElse {
@@ -693,16 +701,17 @@ class OpenId4VpVerifier(
     }
 
     /**
-     * Performs verification of the [IsoMdocLongfellowZKProof] ]
+     * Performs verification of the [IsoMdocLongfellowZKProof]
      */
     private fun verifyZkDocument(
         mdocGeneratedNonce: String,
         clientId: String?,
         responseUrl: String?,
         nonce: String,
-        validateZkSystemType: (ZkDocument) -> Boolean
+        validateZkSystemType: (ZkDocument) -> ZkSystemSpec?
     ): ((ZkDocument) -> Boolean) = { zkDocument ->
-            if (!validateZkSystemType.invoke(zkDocument)) {
+            val zkSystemSpec = validateZkSystemType.invoke(zkDocument)
+            if (zkSystemSpec == null) {
                 Napier.d("zkDocument not of any allowed zkSystemType")
                 false
             } else {
@@ -712,7 +721,9 @@ class OpenId4VpVerifier(
                         clientId = clientId,
                         responseUrl = responseUrl,
                         nonce = nonce,
-                        encrypted = mdocGeneratedNonce.isNotEmpty())
+                        encrypted = mdocGeneratedNonce.isNotEmpty()
+                    ),
+                    zkSystem = zkSystemSpec
                 )
                 proof.verify() 
             }

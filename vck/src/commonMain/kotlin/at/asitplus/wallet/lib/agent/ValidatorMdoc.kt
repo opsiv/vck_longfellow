@@ -31,7 +31,7 @@ import at.asitplus.wallet.lib.data.IsoDocumentParsed
 import at.asitplus.wallet.lib.data.IsoZkDocumentParsed
 import at.asitplus.wallet.lib.data.rfc.tokenStatusList.primitives.TokenStatusValidationResult
 import at.asitplus.wallet.lib.longfellow.Circuit
-import at.asitplus.wallet.lib.longfellow.IsoMdocLongfellowZKProof
+import at.asitplus.wallet.lib.IsoMdocZk.IsoMdocLongfellowZKProof
 import io.github.aakira.napier.Napier
 import kotlinx.serialization.builtins.ByteArraySerializer
 import kotlinx.serialization.encodeToByteArray
@@ -159,7 +159,6 @@ class ValidatorMdoc(
             emptyList<ZkSignedItem>() to allItems
         }
 
-        // TODO: check somewhere if this is even allowed to be proven in ZK (i.e. through some kind of callback?)
         return IsoZkDocumentParsed(
             zkDocument = zkDocument,
             validItems = validItems,
