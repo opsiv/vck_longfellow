@@ -46,14 +46,18 @@ import at.asitplus.wallet.lib.openid.AuthnResponseResult.SuccessSdJwt
 import at.asitplus.wallet.lib.openid.ClientIdScheme
 import at.asitplus.wallet.lib.openid.OpenId4VpVerifier
 import at.asitplus.wallet.lib.openid.OpenId4VpVerifier.CreationOptions
+import at.asitplus.wallet.lib.openid.PresentationMechanismEnum
 import at.asitplus.wallet.lib.openid.RequestOptions
 import at.asitplus.wallet.lib.openid.RequestOptionsCredential
+import at.asitplus.wallet.mdl.MobileDrivingLicenceDataElements
 import at.asitplus.wallet.mdl.MobileDrivingLicenceScheme
 import com.benasher44.uuid.uuid4
 import de.infix.testBalloon.framework.core.TestConfig
 import de.infix.testBalloon.framework.core.aroundEach
 import de.infix.testBalloon.framework.core.testSuite
 import io.github.aakira.napier.Napier
+import io.kotest.assertions.throwables.shouldNotThrow
+import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.string.shouldContain
@@ -180,6 +184,49 @@ val OpenId4VpLongfellowWalletTest by testSuite {
 
             assertPresentation(countdownLatch)
         }
+    }
+
+    test("Selective Disclosure with mDL using ZK") {
+        val scheme = MobileDrivingLicenceScheme
+        val representation = ISO_MDOC
+        val requestedClaims = setOf(
+            MobileDrivingLicenceDataElements.FAMILY_NAME,
+            MobileDrivingLicenceDataElements.BIRTH_PLACE,
+            MobileDrivingLicenceDataElements.GIVEN_NAME,
+        )
+        val attributes = requestedClaims.associateWith { randomString() }
+
+        holderAgent.storeMockCredentials(scheme, representation, attributes)
+
+        val responseMode = ResponseMode.Query
+        val clientId = uuid4().toString()
+        val requestOptions = RequestOptions(
+            credentials = setOf(
+                RequestOptionsCredential(
+                    credentialScheme = MobileDrivingLicenceScheme,
+                    representation = ISO_MDOC,
+                    requestedAttributes = requestedClaims,
+                    zkSystemTypes = nonEmptyListOf(
+                        DCQLZkSystemType(
+                            id = "b2211223b954b34a1081e3fbf71b8ea2de28efc888b4be510f532d6ba76c2010",
+                            system = "longfellow-libzk-v1",
+                            circuitHash = "b2211223b954b34a1081e3fbf71b8ea2de28efc888b4be510f532d6ba76c2010",
+                            numAttributes = requestedClaims.size,
+                            version = 6,
+                        )
+                    )
+                )
+            ),
+            presentationMechanism = PresentationMechanismEnum.DCQL,
+            responseMode = responseMode,
+        )
+        val (mockEngine, url) = setupRelyingPartyService(clientId, requestOptions) {
+            it.verifyReceivedAttributes(attributes)
+        }
+        val wallet = setupWallet(mockEngine)
+
+        val preparationState = wallet.startAuthorizationResponsePreparation(url).getOrThrow()
+        shouldNotThrowAny { wallet.getMatchingCredentials(preparationState).getOrThrow() }
     }
 
 

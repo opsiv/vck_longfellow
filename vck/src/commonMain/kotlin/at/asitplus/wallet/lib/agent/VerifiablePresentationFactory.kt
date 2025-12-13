@@ -135,6 +135,7 @@ class VerifiablePresentationFactory(
                 val credentialAndRequestedClaimsAndSpec = mapOf(
                     credential to (requestedClaims to systemSpec)
                 )
+
                 IsoPresentation.createPresentation(
                     request = request,
                     credentialAndRequestedClaimsAndSpec = credentialAndRequestedClaimsAndSpec,
