@@ -106,7 +106,9 @@ val OpenId4VpLongfellowWalletTest by testSuite {
         attributes: Map<String, Any>,
     ): CredentialToBeIssued = when (this) {
         ISO_MDOC -> CredentialToBeIssued.Iso(
-            issuerSignedItems = attributes.map { it.toIssuerSignedItem() },
+            issuerSignedItems = attributes.entries.mapIndexed { index, entry ->
+                entry.toIssuerSignedItem(index.toUInt())
+            },
             expiration = Clock.System.now().plus(5.minutes).truncateToSeconds(),
             scheme = scheme,
             subjectPublicKey = keyMaterial.publicKey,
@@ -191,10 +193,9 @@ val OpenId4VpLongfellowWalletTest by testSuite {
         val representation = ISO_MDOC
         val requestedClaims = setOf(
             MobileDrivingLicenceDataElements.FAMILY_NAME,
-            MobileDrivingLicenceDataElements.BIRTH_PLACE,
             MobileDrivingLicenceDataElements.GIVEN_NAME,
         )
-        val attributes = requestedClaims.associateWith { randomString() }
+        val attributes = requestedClaims.associateWith { randomString().take(15) }
 
         holderAgent.storeMockCredentials(scheme, representation, attributes)
 
@@ -208,9 +209,9 @@ val OpenId4VpLongfellowWalletTest by testSuite {
                     requestedAttributes = requestedClaims,
                     zkSystemTypes = nonEmptyListOf(
                         DCQLZkSystemType(
-                            id = "b2211223b954b34a1081e3fbf71b8ea2de28efc888b4be510f532d6ba76c2010",
+                            id = "test123",
                             system = "longfellow-libzk-v1",
-                            circuitHash = "b2211223b954b34a1081e3fbf71b8ea2de28efc888b4be510f532d6ba76c2010",
+                            circuitHash = "b4bb6f01b7043f4f51d8302a30b36e3d4d2d0efc3c24557ab9212ad524a9764e",
                             numAttributes = requestedClaims.size,
                             version = 6,
                         )
@@ -227,6 +228,12 @@ val OpenId4VpLongfellowWalletTest by testSuite {
 
         val preparationState = wallet.startAuthorizationResponsePreparation(url).getOrThrow()
         shouldNotThrowAny { wallet.getMatchingCredentials(preparationState).getOrThrow() }
+
+        wallet.finalizeAuthorizationResponse(preparationState).getOrThrow()
+            .shouldBeInstanceOf<OpenId4VpWallet.AuthenticationSuccess>()
+            .redirectUri?.let { HttpClient(mockEngine).get(it) }
+
+        assertPresentation(countdownLatch)
     }
 
 
@@ -400,14 +407,16 @@ val OpenId4VpLongfellowWalletTest by testSuite {
     }
 }
 
-private fun Map.Entry<String, Any>.toIssuerSignedItem(): IssuerSignedItem =
-    IssuerSignedItem(0U, Random.nextBytes(16), key, value)
+private fun Map.Entry<String, Any>.toIssuerSignedItem(digestId: UInt = 0U): IssuerSignedItem =
+    IssuerSignedItem(digestId, Random.nextBytes(16), key, value)
 
 
 private fun AuthnResponseResult.containsAllAttributes(expectedAttributes: Map<String, String>): Boolean =
     when (this) {
         is SuccessSdJwt -> this.containsAllAttributes(expectedAttributes)
         is SuccessIso -> this.containsAllAttributes(expectedAttributes)
+        is AuthnResponseResult.VerifiableDCQLPresentationValidationResults ->
+            this.validationResults.values.any { it.containsAllAttributes(expectedAttributes) }
         else -> false
     }
 
