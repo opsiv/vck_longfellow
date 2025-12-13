@@ -724,7 +724,7 @@ class OpenId4VpVerifier(
                         nonce = nonce,
                         encrypted = mdocGeneratedNonce.isNotEmpty()
                     ),
-                    zkSystemSpec = zkSystemSpec
+                    zkSystemSpecs = listOf(zkSystemSpec) // TODO: rethink this approach. because there should only be one
                 )
                 proof.verify() 
             }

@@ -22,14 +22,24 @@ object IsoMdocProofRegistry {
 
 
     // TODO: consider giving even more options to findFactory, a document or zkDocument could be relevant,
-    //  for example if the number of attributes is releavnt, or the existence of a DeviceSigned namespaces
-    private fun findFactory(spec: ZkSystemSpec): IsoMdocZkProofFactory =
-        factories.firstOrNull { it.supports(spec) }
-            ?: error("Unsupported zkSystemSpec: $spec")
+    //  for example if the number of attributes is relevant, or the existence of a DeviceSigned namespaces
+    private fun findFactory(zkSystemSpecs: List<ZkSystemSpec>): Pair<IsoMdocZkProofFactory, ZkSystemSpec> {
+        zkSystemSpecs.forEach { zkSystemSpec ->
+            factories.firstOrNull { it.supports(zkSystemSpec) }
+                ?.let { return it to zkSystemSpec}
+        }
+        error("Unsupported zkSystemSpecs: $zkSystemSpecs")
+    }
 
-    fun generate(zkSystemSpec: ZkSystemSpec, sessionTranscript: SessionTranscript, deviceResponse: DeviceResponse): IsoMdocZkProof =
-        findFactory(zkSystemSpec).generate(zkSystemSpec, sessionTranscript, deviceResponse)
+    fun generate(zkSystemSpecs: List<ZkSystemSpec>, sessionTranscript: SessionTranscript, deviceResponse: DeviceResponse): IsoMdocZkProof {
+        val (isoMdocZkProofFactory, zkSystemSpec) = findFactory(zkSystemSpecs)
+        return isoMdocZkProofFactory.generate(zkSystemSpec, sessionTranscript, deviceResponse)
+    }
 
-    fun load(zkDocument: ZkDocument, sessionTranscript: SessionTranscript, zkSystemSpec: ZkSystemSpec): IsoMdocZkProof =
-        findFactory(zkSystemSpec).load(zkDocument, sessionTranscript, zkSystemSpec)
+
+    fun load(zkSystemSpecs: List<ZkSystemSpec>, zkDocument: ZkDocument, sessionTranscript: SessionTranscript): IsoMdocZkProof {
+        val (isoMdocZkProofFactory, zkSystemSpec) = findFactory(zkSystemSpecs)
+        return isoMdocZkProofFactory.load(zkDocument, sessionTranscript, zkSystemSpec)
+    }
+
 }

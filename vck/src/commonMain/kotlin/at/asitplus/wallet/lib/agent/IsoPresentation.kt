@@ -10,41 +10,15 @@ import at.asitplus.iso.ZkSignedList
 import at.asitplus.iso.Document
 import at.asitplus.iso.IssuerSigned
 import at.asitplus.iso.IssuerSignedList
-import at.asitplus.iso.ZkSystemSpec
 import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.jsonpath.core.NormalizedJsonPathSegment
-import at.asitplus.openid.CredentialFormatEnum
-import at.asitplus.openid.dcql.DCQLCredentialQuery
-import at.asitplus.openid.dcql.DCQLIsoMdocCredentialMetadataAndValidityConstraints
 import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
 import at.asitplus.wallet.lib.isoMdocZk.IsoMdocProofRegistry
-import at.asitplus.wallet.lib.isoMdocZk.IsoMdocZkProof
-import io.github.aakira.napier.Napier
+import at.asitplus.wallet.lib.isoMdocZk.SystemSpec
 import kotlin.collections.component1
 import kotlin.collections.component2
 
 object IsoPresentation {
-    suspend fun createPresentation(
-        request: PresentationRequestParameters,
-        credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>,
-        credentialQuery: DCQLCredentialQuery? = null,
-        // TODO: replace DCQLCredentialQuery with an interface containing a list and a boolean to enforce ZK or not
-    ): CreatePresentationResult {
-         when(credentialQuery?.format) {
-             // TODO: MSO_MDOC should also be able to do zk, but lets solve it via the interface, if the list is nonempty
-            CredentialFormatEnum.MSO_MDOC_ZK -> return createLFZKPresentation(
-                request = request,
-                credentialAndRequestedClaims = credentialAndRequestedClaims,
-                credentialQuery = credentialQuery
-            )
-            else -> return createPlainPresentation(
-                request = request,
-                credentialAndRequestedClaims = credentialAndRequestedClaims,
-                credentialQuery = null
-            )
-        }
-    }
-
     private suspend fun buildPlainDocuments(
         request: PresentationRequestParameters,
         credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>
@@ -111,87 +85,75 @@ object IsoPresentation {
         return documents
     }
 
-    private suspend fun createPlainPresentation(
+    // TODO: this now creates the zk AND the Plain representation, consider splitting this up a little
+    suspend fun createPresentation(
         request: PresentationRequestParameters,
-        credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>,
-        credentialQuery: DCQLCredentialQuery?,
-    ): CreatePresentationResult {
-        Napier.d("createIsoPresentation with $request and $credentialAndRequestedClaims")
-        return CreatePresentationResult.DeviceResponse(
-            DeviceResponse(
-                version = "1.0",
-                documents = buildPlainDocuments(
-                    request = request,
-                    credentialAndRequestedClaims = credentialAndRequestedClaims,
-                ).toTypedArray(),
-                status = 0U,
-            ),
-            mdocGeneratedNonce = request.mdocGeneratedNonce
-        )
-    }
-
-    suspend fun createLFZKPresentation(
-        request: PresentationRequestParameters,
-        credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>,
-        credentialQuery: DCQLCredentialQuery?
+        credentialAndRequestedClaimsAndSpec: Map<
+            SubjectCredentialStore.StoreEntry.Iso,
+            Pair<Collection<NormalizedJsonPath>, SystemSpec>
+        >,
     ): CreatePresentationResult {
         require(request.sessionTranscript != null) {"No or too many documents found!"}
 
-        val deviceResponses: List<DeviceResponse> = buildPlainDocuments(
-            request = request,
-            credentialAndRequestedClaims = credentialAndRequestedClaims,
-        ).map { document ->
-            DeviceResponse(
+        // TODO: Here we ensure that every DeviceResponse has exactly one document inside as preparation for Longfellow,
+        //  This means it is very tightly coupled to LongfellowZk.
+        //  What we want instead is one credential mapping to one document, just like in the plain version.
+        //  Step 1: The ZkSystem should accept the Document directly (instead of the DeviceResponse) and assemble
+        //  intermediate representations (such as wrapping into DeviceResponse) by itself
+        //  Step 2: The ZkSystem should not even get a document, instead, it should just get one map entry from
+        //  credentialAndRequestedClaimsAndSpec and figure out everything else by itself
+        //  (this way it is the most self-contained)
+        val deviceResponsesForZk: Map<DeviceResponse, SystemSpec> = credentialAndRequestedClaimsAndSpec
+            .filter { (_, claimsAndSpec) ->
+                val (_, spec) = claimsAndSpec
+                !(spec.allowedZkSpec.isEmpty() && !spec.forceZk)
+            }
+            .map { (credential, claimsAndSpec) ->
+            val (requestedClaims, spec) = claimsAndSpec
+            val document = buildPlainDocuments(
+                request = request,
+                credentialAndRequestedClaims = mapOf(credential to requestedClaims)
+            ).single()
+
+            val deviceResponse = DeviceResponse(
                 version = "1.0",
                 documents = arrayOf(document),
                 status = 0U,
             )
-        }
 
-        val zkDocuments = deviceResponses.map { deviceResponse ->
-            val document = deviceResponse.documents?.singleOrNull()
+            deviceResponse to spec
+        }.toMap()
+        val zkDocuments = deviceResponsesForZk.map { (deviceResponse, systemSpec) ->
+            deviceResponse.documents?.singleOrNull()
                 ?: throw IllegalStateException("No or too many documents found!")
 
-            val namespaces = document.issuerSigned.namespaces.toDisclosed() ?: emptyMap()
-            val attributeCount = namespaces.values.sumOf { it.entries.size }
-
-            // TODO: replace these and set them for each strategy!
-            val maxVersion: Int? = null
-            val minVersion: Int? = 4
-            val system: String = "longfellow-libzk-v1"
-
-            // TODO: differentiate between different zk systems (perhaps using presentation strategy)
-            val zkSystemTypes = (credentialQuery?.meta as? DCQLIsoMdocCredentialMetadataAndValidityConstraints)
-                ?.zkSystemType ?: throw IllegalStateException("No zkDocuments found!")
-            val zkSystemType =  zkSystemTypes.filter { it.system == system }
-                .filter { it.numAttributes == attributeCount }
-                .filter {minVersion == null || it.version >= minVersion}
-                .filter {maxVersion == null || it.version <= maxVersion}
-                .maxByOrNull { it.version }
-                ?:  throw IllegalStateException("No matching supported zkSystemType!")
-
-            // TODO replace ad-hoch conversion with something more abstract that works for all zk systems
-            val zkSystemSpec = ZkSystemSpec(
-                system = zkSystemType.system,
-                zkSystemId = zkSystemType.id,
-                params = mapOf(
-                    "circuit_hash" to zkSystemType.circuitHash
-                ),
-            )
+            // TODO: redo this, because it might be empty/etc
+            val zkSystemSpecs = systemSpec.allowedZkSpec
 
             val proof = IsoMdocProofRegistry.generate(
                 sessionTranscript = request.sessionTranscript,
                 deviceResponse = deviceResponse,
-                zkSystemSpec = zkSystemSpec,
+                zkSystemSpecs = zkSystemSpecs,
             )
 
             proof.toZkDocument()
         }
 
+        val documents = buildPlainDocuments(
+            request = request,
+            credentialAndRequestedClaims = credentialAndRequestedClaimsAndSpec
+                .filter { (_, claimsAndSpec) ->
+                    val (_, spec) = claimsAndSpec
+                    spec.allowedZkSpec.isEmpty() && !spec.forceZk
+                }.mapValues { it.value.first }
+        )
+
+
         return CreatePresentationResult.DeviceResponse(
             deviceResponse = DeviceResponse(
                 version = "1.0",
-                zkDocuments = zkDocuments.toTypedArray(),
+                zkDocuments = zkDocuments.toTypedArray().takeIf { it.isNotEmpty() },
+                documents = documents.toTypedArray().takeIf { it.isNotEmpty() },
                 status = 0U,
             ),
             mdocGeneratedNonce = request.mdocGeneratedNonce
