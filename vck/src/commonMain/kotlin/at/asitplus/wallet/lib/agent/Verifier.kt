@@ -1,21 +1,17 @@
 package at.asitplus.wallet.lib.agent
 
-import at.asitplus.data.NonEmptyList
 import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.Document
 import at.asitplus.iso.IssuerSigned
 import at.asitplus.iso.MobileSecurityObject
-import at.asitplus.iso.SessionTranscript
 import at.asitplus.iso.ZkDocument
 import at.asitplus.openid.TransactionDataBase64Url
-import at.asitplus.openid.dcql.DCQLZkSystemType
 import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.josef.JwsSigned
 import at.asitplus.signum.indispensable.josef.toJsonWebKey
 import at.asitplus.wallet.lib.agent.validation.CredentialFreshnessSummary
 import at.asitplus.wallet.lib.data.ConstantIndex
 import at.asitplus.wallet.lib.data.IsoDocumentParsed
-import at.asitplus.wallet.lib.data.IsoZkDocumentParsed
 import at.asitplus.wallet.lib.data.SelectiveDisclosureItem
 import at.asitplus.wallet.lib.data.VerifiableCredentialJws
 import at.asitplus.wallet.lib.data.VerifiableCredentialSdJwt
@@ -63,11 +59,11 @@ interface Verifier {
 
     /**
      * Verifies a presentation of some credentials in [ConstantIndex.CredentialRepresentation.ISO_MDOC] from a holder,
-     * with a challenge validated by the callback in [verifyDocument] (i.e. device authentication for OpenID4VP).
+     * with a challenge validated by the callback in [verifyPlainDocument] (i.e. device authentication for OpenID4VP).
      */
     suspend fun verifyPresentationIsoMdoc(
         input: DeviceResponse,
-        verifyDocument: suspend (MobileSecurityObject, Document) -> Boolean,
+        verifyPlainDocument: suspend (MobileSecurityObject, Document) -> Boolean,
         verifyZkDocument: ((ZkDocument) -> Boolean)? = null,
     ): VerifyPresentationResult
 
@@ -86,7 +82,6 @@ interface Verifier {
 
         data class SuccessIso(
             val documents: List<IsoDocumentParsed> = emptyList(),
-            val zkDocuments: List<IsoZkDocumentParsed> = emptyList(),
         ) : VerifyPresentationResult()
 
         data class ValidationError(

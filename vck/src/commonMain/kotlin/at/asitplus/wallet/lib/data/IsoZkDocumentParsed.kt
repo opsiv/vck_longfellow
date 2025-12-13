@@ -6,7 +6,7 @@ import at.asitplus.wallet.lib.agent.validation.CredentialFreshnessSummary
 
 data class IsoZkDocumentParsed(
     val zkDocument: ZkDocument,
-    val validItems: List<ZkSignedItem> = listOf(),
-    val invalidItems: List<ZkSignedItem> = listOf(),
-    val freshnessSummary: CredentialFreshnessSummary.Mdoc // TODO: possibly do an extra class for MdocZk
-)
+    override val validItems: List<ZkSignedItem> = listOf(),
+    override val invalidItems: List<ZkSignedItem> = listOf(),
+    override val freshnessSummary: CredentialFreshnessSummary.Mdoc // TODO: possibly do an extra class for MdocZk
+) : IsoDocumentParsed

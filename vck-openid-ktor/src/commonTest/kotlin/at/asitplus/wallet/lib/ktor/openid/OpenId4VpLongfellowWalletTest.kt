@@ -3,7 +3,7 @@ package at.asitplus.wallet.lib.ktor.openid
 import at.asitplus.data.NonEmptyList.Companion.nonEmptyListOf
 import at.asitplus.dcapi.request.Oid4vpDCAPIRequest
 import at.asitplus.iso.IssuerSignedItem
-import at.asitplus.iso.ZkSignedItem
+import at.asitplus.iso.Item
 import at.asitplus.openid.CredentialFormatEnum
 import at.asitplus.openid.OidcUserInfo
 import at.asitplus.openid.OidcUserInfoExtended
@@ -56,7 +56,6 @@ import de.infix.testBalloon.framework.core.TestConfig
 import de.infix.testBalloon.framework.core.aroundEach
 import de.infix.testBalloon.framework.core.testSuite
 import io.github.aakira.napier.Napier
-import io.kotest.assertions.throwables.shouldNotThrow
 import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -234,6 +233,8 @@ val OpenId4VpLongfellowWalletTest by testSuite {
             .redirectUri?.let { HttpClient(mockEngine).get(it) }
 
         assertPresentation(countdownLatch)
+
+        // TODO: check if we ever actually do the verification
     }
 
 
@@ -430,16 +431,12 @@ private fun SuccessIso.containsAllAttributes(attributes: Map<String, String>): B
     attributes.all { containsAttribute(it) }
 
 private fun SuccessIso.containsAttribute(attribute: Map.Entry<String, String>): Boolean =
-    documents.any { doc -> doc.validItems.any { it.matchesAttribute(attribute) } } ||
-            zkDocuments.any {zkDoc -> zkDoc.validItems.any { it.matchesAttribute(attribute) } }
+    documents.any { doc -> doc.validItems.any { it.matchesAttribute(attribute) } }
 
 private fun SelectiveDisclosureItem.matchesAttribute(attribute: Map.Entry<String, String>): Boolean =
     claimName == attribute.key && claimValue.jsonPrimitive.content == attribute.value
 
-private fun IssuerSignedItem.matchesAttribute(attribute: Map.Entry<String, String>): Boolean =
-    elementIdentifier == attribute.key && elementValue.toString() == attribute.value
-
-private fun ZkSignedItem.matchesAttribute(attribute: Map.Entry<String, String>): Boolean =
+private fun Item.matchesAttribute(attribute: Map.Entry<String, String>): Boolean =
     elementIdentifier == attribute.key && elementValue.toString() == attribute.value
 
 // If the countdownLatch has been unlocked, the correct credential has been posted to the RP, and we're done!

@@ -596,13 +596,6 @@ class OpenId4VpVerifier(
                         validateZkSystemType = validateZkSystemType,
                     )
 
-                    // TODO: move DCQL speicifc check somewhere else, it is a bit ugly to do this afterwards.
-                    //  could be done before or within the verifyPresentationResult
-                    if (result is VerifyPresentationResult.SuccessIso) {
-                        val totalDocs = result.documents.size + result.zkDocuments.size
-                        require(totalDocs == 1) {"DCQL expects exactly one document, $totalDocs provided"}
-                    }
-
                     result.mapToAuthnResponseResult(state)
                 }.getOrElse {
                     return AuthnResponseResult.ValidationError("Invalid presentation", state, it)
@@ -687,7 +680,7 @@ class OpenId4VpVerifier(
 
             verifier.verifyPresentationIsoMdoc(
                 input = deviceResponse,
-                verifyDocument = verifyDocument(mdocGeneratedNonce, clientId, responseUrl, expectedNonce),
+                verifyPlainDocument = verifyPlainDocument(mdocGeneratedNonce, clientId, responseUrl, expectedNonce),
                 verifyZkDocument = if (validateZkSystemType == null) null else verifyZkDocument(
                     mdocGeneratedNonce = mdocGeneratedNonce,
                     clientId = clientId,
@@ -735,7 +728,7 @@ class OpenId4VpVerifier(
      * acc. to ISO/IEC 18013-5:2021 and ISO/IEC 18013-7:2024, if required (i.e. response is encrypted)
      */
     @Throws(IllegalArgumentException::class, IllegalStateException::class)
-    private fun verifyDocument( 
+    private fun verifyPlainDocument(
         mdocGeneratedNonce: String,
         clientId: String?,
         responseUrl: String?,
@@ -857,7 +850,7 @@ class OpenId4VpVerifier(
     private fun VerifyPresentationResult.mapToAuthnResponseResult(state: String) = when (this) {
         is VerifyPresentationResult.ValidationError -> AuthnResponseResult.ValidationError("vpToken", state, cause)
         is VerifyPresentationResult.Success -> AuthnResponseResult.Success(vp, state)
-        is VerifyPresentationResult.SuccessIso -> AuthnResponseResult.SuccessIso(documents, zkDocuments, state)
+        is VerifyPresentationResult.SuccessIso -> AuthnResponseResult.SuccessIso(documents, state)
         is VerifyPresentationResult.SuccessSdJwt -> AuthnResponseResult.SuccessSdJwt(
             sdJwtSigned = sdJwtSigned,
             verifiableCredentialSdJwt = verifiableCredentialSdJwt,

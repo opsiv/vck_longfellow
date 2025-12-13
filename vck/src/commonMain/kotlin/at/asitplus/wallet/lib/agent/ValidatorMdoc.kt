@@ -25,6 +25,7 @@ import at.asitplus.wallet.lib.agent.validation.mdoc.MdocTimelinessValidationDeta
 import at.asitplus.wallet.lib.cbor.VerifyCoseSignatureWithKey
 import at.asitplus.wallet.lib.cbor.VerifyCoseSignatureWithKeyFun
 import at.asitplus.wallet.lib.data.IsoDocumentParsed
+import at.asitplus.wallet.lib.data.IsoPlainDocumentParsed
 import at.asitplus.wallet.lib.data.IsoZkDocumentParsed
 import at.asitplus.wallet.lib.data.rfc.tokenStatusList.primitives.TokenStatusValidationResult
 import io.github.aakira.napier.Napier
@@ -52,7 +53,7 @@ class ValidatorMdoc(
     @Throws(IllegalArgumentException::class, CancellationException::class)
     suspend fun verifyDeviceResponse(
         deviceResponse: DeviceResponse,
-        verifyDocumentCallback: suspend (MobileSecurityObject, Document) -> Boolean,
+        verifyPlainDocumentCallback: suspend (MobileSecurityObject, Document) -> Boolean,
         verifyZkDocumentCallback: ((ZkDocument) -> Boolean)? = null,
     ): VerifyPresentationResult {
         require(deviceResponse.status == 0U) { "status: ${deviceResponse.status}" }
@@ -65,17 +66,18 @@ class ValidatorMdoc(
             throw IllegalArgumentException("ZkDocuments in response, but no validation possible")
         }
 
-        val documents = deviceResponse.documents?.map {
-            verifyDocument(it, verifyDocumentCallback)
+        val plainDocuments = deviceResponse.documents?.map {
+            verifyPlainDocument(it, verifyPlainDocumentCallback)
         } ?: emptyList()
 
         val zkDocuments = deviceResponse.zkDocuments?.map {
             verifyZkDocument(it, verifyZkDocumentCallback!!)
         } ?: emptyList()
 
+        val allDocuments = zkDocuments + plainDocuments
+
         return VerifyPresentationResult.SuccessIso(
-            documents = documents,
-            zkDocuments = zkDocuments,
+            documents = allDocuments,
         )
     }
 
@@ -83,9 +85,9 @@ class ValidatorMdoc(
      * Validates an ISO document, equivalent of a Verifiable Presentation
      */
     @Throws(IllegalArgumentException::class, CancellationException::class)
-    suspend fun verifyDocument(
+    suspend fun verifyPlainDocument(
         document: Document,
-        verifyDocumentCallback: suspend (MobileSecurityObject, Document) -> Boolean,
+        verifyPlainDocumentCallback: suspend (MobileSecurityObject, Document) -> Boolean,
     ): IsoDocumentParsed {
         require(document.errors == null) { "Errors: ${document.errors}" }
         val issuerSigned = document.issuerSigned
@@ -109,7 +111,7 @@ class ValidatorMdoc(
         require(mso.docType == document.docType) {
             "mso.docType '${mso.docType}' does not match Doc docType '${document.docType}'"
         }
-        require(verifyDocumentCallback.invoke(mso, document)) {
+        require(verifyPlainDocumentCallback.invoke(mso, document)) {
             "document callback failed: $document"
         }
 
@@ -124,7 +126,7 @@ class ValidatorMdoc(
                 }
             }
         }
-        return IsoDocumentParsed(
+        return IsoPlainDocumentParsed(
             document = document,
             mso = mso,
             validItems = validItems,

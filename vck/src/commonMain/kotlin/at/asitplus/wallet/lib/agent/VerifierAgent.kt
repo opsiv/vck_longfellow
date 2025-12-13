@@ -4,7 +4,6 @@ import at.asitplus.catchingUnwrapped
 import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.Document
 import at.asitplus.iso.MobileSecurityObject
-import at.asitplus.iso.SessionTranscript
 import at.asitplus.iso.ZkDocument
 import at.asitplus.openid.TransactionDataBase64Url
 import at.asitplus.signum.indispensable.josef.JwsSigned
@@ -48,10 +47,10 @@ class VerifierAgent(
 
     override suspend fun verifyPresentationIsoMdoc(
         input: DeviceResponse,
-        verifyDocument: suspend (MobileSecurityObject, Document) -> Boolean,
+        verifyPlainDocument: suspend (MobileSecurityObject, Document) -> Boolean,
         verifyZkDocument: ((ZkDocument) -> Boolean)?
     ): VerifyPresentationResult = catchingUnwrapped {
-        validatorMdoc.verifyDeviceResponse(input,verifyDocument, verifyZkDocument)
+        validatorMdoc.verifyDeviceResponse(input,verifyPlainDocument, verifyZkDocument)
     }.getOrElse {
         VerifyPresentationResult.ValidationError(it)
     }
