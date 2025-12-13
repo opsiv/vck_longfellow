@@ -48,7 +48,7 @@ class VerifiablePresentationFactory(
         ): KmmResult<CreatePresentationResult> = catching {
         IsoPresentation.createPresentation(
             request = request,
-            credentialAndRequestedClaimsAndSpec = credentialAndDisclosedAttributes.mapValues { it.value to SystemSpec(emptyList()) },
+            credentialAndRequestedClaimsAndSpec = credentialAndDisclosedAttributes.mapValues { it.value to SystemSpec.Default },
         )
     }
 
@@ -72,7 +72,7 @@ class VerifiablePresentationFactory(
             is SubjectCredentialStore.StoreEntry.Iso -> {
                 IsoPresentation.createPresentation(
                     request = request,
-                    credentialAndRequestedClaimsAndSpec = mapOf(credential to (disclosedAttributes to SystemSpec(emptyList()))),
+                    credentialAndRequestedClaimsAndSpec = mapOf(credential to (disclosedAttributes to SystemSpec.Default)),
                 )
             }
         }

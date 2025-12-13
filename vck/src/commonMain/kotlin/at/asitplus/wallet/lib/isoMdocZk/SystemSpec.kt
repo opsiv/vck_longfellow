@@ -6,4 +6,8 @@ import at.asitplus.iso.ZkSystemSpec
 data class SystemSpec(
     val allowedZkSpec: List<ZkSystemSpec>,
     val forceZk: Boolean = false
-)
+) {
+    companion object {
+        val Default = SystemSpec(listOf(), false)
+    }
+}
