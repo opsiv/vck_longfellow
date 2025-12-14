@@ -8,12 +8,16 @@ import at.asitplus.dif.FormatHolder
 import at.asitplus.dif.InputDescriptor
 import at.asitplus.dif.PresentationSubmission
 import at.asitplus.dif.PresentationSubmissionDescriptor
+import at.asitplus.iso.ZkSystemSpec
 import at.asitplus.jsonpath.core.NodeList
 import at.asitplus.jsonpath.core.NormalizedJsonPath
+import at.asitplus.openid.CredentialFormatEnum
 import at.asitplus.openid.dcql.DCQLCredentialQuery
+import at.asitplus.openid.dcql.DCQLIsoMdocCredentialMetadataAndValidityConstraints
 import at.asitplus.openid.dcql.DCQLIsoMdocCredentialQuery
 import at.asitplus.openid.dcql.DCQLQuery
 import at.asitplus.openid.dcql.DCQLQueryResult
+import at.asitplus.openid.dcql.DCQLZkSystemType
 import at.asitplus.signum.indispensable.cosef.CoseKey
 import at.asitplus.signum.indispensable.cosef.toCoseKey
 import at.asitplus.signum.indispensable.pki.X509Certificate
@@ -26,6 +30,7 @@ import at.asitplus.wallet.lib.data.VerifiablePresentationJws
 import at.asitplus.wallet.lib.data.dif.PresentationExchangeInputEvaluator
 import at.asitplus.wallet.lib.data.dif.PresentationSubmissionValidator
 import at.asitplus.wallet.lib.extensions.toDefaultSubmission
+import at.asitplus.wallet.lib.isoMdocZk.SystemSpec
 import at.asitplus.wallet.lib.jws.JwsHeaderCertOrJwk
 import at.asitplus.wallet.lib.jws.JwsHeaderNone
 import at.asitplus.wallet.lib.jws.SignJwt
@@ -253,15 +258,39 @@ class HolderAgent(
 
         val verifiablePresentations = credentialSubmissions.mapValues { (queryId, submission) ->
             val credentialQuery = dcqlQuery.credentials.find { it.id == queryId }
+            val forceZk = credentialQuery?.let {it.format == CredentialFormatEnum.MSO_MDOC_ZK} ?: false
+            val systemSpec = (credentialQuery?.meta as? DCQLIsoMdocCredentialMetadataAndValidityConstraints)
+                ?.zkSystemType?.toSystemSpec(forceZk)
+
             verifiablePresentationFactory.createVerifiablePresentation(
                 request = request,
                 credential = submission.credential,
                 disclosedAttributes = submission.matchingResult,
-                credentialQuery = credentialQuery,
+                systemSpec = systemSpec,
             ).getOrThrow()
         }
 
         PresentationResponseParameters.DCQLParameters(verifiablePresentations)
+    }
+
+    private fun List<DCQLZkSystemType>.toSystemSpec(forceZk: Boolean): SystemSpec {
+        val zkSystemSpecs = this.map { dcqlZkSystemType ->
+            ZkSystemSpec(
+                system = dcqlZkSystemType.system,
+                zkSystemId = dcqlZkSystemType.id,
+                params = mapOf(
+                    DCQLZkSystemType.PROP_CIRCUIT_HASH to dcqlZkSystemType.circuitHash,
+//                    DCQLZkSystemType.PROP_NUM_ATTRIBUTES to dcqlZkSystemType.numAttributes,
+//                    DCQLZkSystemType.PROP_VERSION to dcqlZkSystemType.version,
+//                    DCQLZkSystemType.PROP_BLOCK_ENC_HASH to dcqlZkSystemType.blockEncHash,
+//                    DCQLZkSystemType.PROP_BLOCK_ENC_SIG to dcqlZkSystemType.blockEncSig,
+                )
+            )
+        }
+        return SystemSpec(
+            allowedZkSpec = zkSystemSpecs,
+            forceZk = forceZk,
+        )
     }
 
     override suspend fun matchInputDescriptorsAgainstCredentialStore(

@@ -9,6 +9,9 @@ data class ZkSystemSpec (
     val zkSystemId: String,
     @SerialName("system")
     val system: String,
+
+    // TODO: According to ISO/IEC 18013-5:2021 2nd edition, 10.2.7 "params" should be a Map<String, Any>
+    //  Implement a custom serializer to achieve this
     @SerialName("params")
     val params: Map<String, String>
 )

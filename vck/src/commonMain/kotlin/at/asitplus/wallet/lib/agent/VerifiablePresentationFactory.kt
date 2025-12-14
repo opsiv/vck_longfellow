@@ -82,9 +82,7 @@ class VerifiablePresentationFactory(
         request: PresentationRequestParameters,
         credential: SubjectCredentialStore.StoreEntry,
         disclosedAttributes: DCQLCredentialQueryMatchingResult,
-        // TODO: i fell like we can get rid of this credentialQuery here or something else, because we are in the dcql flow,
-        //  we just have to find out how, at this point
-        credentialQuery: DCQLCredentialQuery? = null,
+        systemSpec: SystemSpec? = null,
     ): KmmResult<CreatePresentationResult> = catching {
         when (credential) {
             is SubjectCredentialStore.StoreEntry.Vc -> if (disclosedAttributes !is DCQLCredentialQueryMatchingResult.AllClaimsMatchingResult) {
@@ -113,29 +111,12 @@ class VerifiablePresentationFactory(
             )
 
             is SubjectCredentialStore.StoreEntry.Iso -> {
-                // TODO: replace this conversion adhoc thing with a Collection<DCQLDzkSystemType>.toZkSystemSpecs()
-                //  also only pass the list of ZkSystemSpecs not the query itself. do the conversion inside a dcql flow function
-                val zkSystemSpecs = (credentialQuery?.meta as? DCQLIsoMdocCredentialMetadataAndValidityConstraints)
-                    ?.zkSystemType?.map {zkSystemType ->
-                        ZkSystemSpec(
-                            system = zkSystemType.system,
-                            zkSystemId = zkSystemType.id,
-                            params = mapOf(
-                                "circuit_hash" to zkSystemType.circuitHash
-                            )
-                        )
-                    }
-
                 val requestedClaims = disclosedAttributes.toRequestedIsoClaims(credential)
-                val systemSpec = SystemSpec(
-                    allowedZkSpec = zkSystemSpecs ?: emptyList(),
-                    forceZk = credentialQuery?.let {it.format == CredentialFormatEnum.MSO_MDOC_ZK} ?: false,
-                )
+                val spec = systemSpec ?: SystemSpec.Default
                 // Since we are in the DCQL flow there is only 1 single credential, so we can just directly map here
                 val credentialAndRequestedClaimsAndSpec = mapOf(
-                    credential to (requestedClaims to systemSpec)
+                    credential to (requestedClaims to spec),
                 )
-
                 IsoPresentation.createPresentation(
                     request = request,
                     credentialAndRequestedClaimsAndSpec = credentialAndRequestedClaimsAndSpec,
