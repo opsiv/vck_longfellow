@@ -7,11 +7,16 @@ import at.asitplus.iso.ZkDocument
 import at.asitplus.iso.ZkDocumentData
 import at.asitplus.iso.ZkSignedList
 import at.asitplus.iso.ZkSystemSpec
+import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.openid.truncateToSeconds
 import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.signum.indispensable.pki.X509Certificate
+import at.asitplus.wallet.lib.agent.IsoPresentation
+import at.asitplus.wallet.lib.agent.IsoPresentation.buildPlainDocuments
+import at.asitplus.wallet.lib.agent.PresentationRequestParameters
+import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 import at.asitplus.wallet.lib.agent.toDisclosed
 import at.asitplus.wallet.lib.longfellow.Circuit
 import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeLibrary
@@ -71,14 +76,25 @@ class IsoMdocLongfellowZKProof (
                     zkSystemSpec.params.containsKey(circuitHashIdentifier)
         }
 
-        override fun generate(
-            zkSystemSpec: ZkSystemSpec,
-            sessionTranscript: SessionTranscript,
-            deviceResponse: DeviceResponse,
+        override suspend fun generate(
+            request: PresentationRequestParameters,
+            credential: SubjectCredentialStore.StoreEntry.Iso,
+            requestedClaims: Collection<NormalizedJsonPath>,
+            zkSystemSpec: ZkSystemSpec
         ): IsoMdocZkProof {
-            val document = deviceResponse.documents?.singleOrNull()
-                ?: throw IllegalStateException("No or too many documents found!")
+            val sessionTranscript = request.sessionTranscript
 
+            require(request.sessionTranscript != null) {"No or too many documents found!"}
+
+            val document = IsoPresentation.buildPlainDocuments(
+                request = request,
+                credentialAndRequestedClaims = mapOf(credential to requestedClaims)
+            ).single()
+            val deviceResponse = DeviceResponse(
+                version = "1.0",
+                documents = arrayOf(document),
+                status = 0U,
+            )
             // TODO: remove this check
             if (!isIso8601Compliant(document.issuerSigned.issuerAuth.payload?.validityInfo))
                 throw IllegalStateException("Timestamps do not follow ISO-8601 (precision to seconds)")
@@ -122,6 +138,7 @@ class IsoMdocLongfellowZKProof (
                 sessionTranscript = sessionTranscript,
                 zkSystemSpec = zkSystemSpec,
             )
+
         }
 
         override fun load(

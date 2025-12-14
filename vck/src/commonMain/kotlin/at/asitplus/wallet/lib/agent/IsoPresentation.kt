@@ -20,7 +20,8 @@ import kotlin.collections.component1
 import kotlin.collections.component2
 
 object IsoPresentation {
-    private suspend fun buildPlainDocuments(
+    // TODO: Move this function somewhere else
+    internal suspend fun buildPlainDocuments(
         request: PresentationRequestParameters,
         credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>
     ): List<Document> {
@@ -86,14 +87,6 @@ object IsoPresentation {
         return documents
     }
 
-    // TODO: Here we ensure that every DeviceResponse has exactly one document inside as preparation for Longfellow,
-    //  This means it is very tightly coupled to LongfellowZk.
-    //  What we want instead is one credential mapping to one document, just like in the plain version.
-    //  Step 1: The ZkSystem should accept the Document directly (instead of the DeviceResponse) and assemble
-    //  intermediate representations (such as wrapping into DeviceResponse) by itself
-    //  Step 2: The ZkSystem should not even get a document, instead, it should just get one map entry from
-    //  credentialAndRequestedClaimsAndSpec and figure out everything else by itself
-    //  (this way it is the most self-contained)
     suspend fun createZkDocument(request: PresentationRequestParameters,
          credentialAndRequestedClaimsAndSpec: Map<
                  SubjectCredentialStore.StoreEntry.Iso,
@@ -101,41 +94,19 @@ object IsoPresentation {
              >,
     ): Collection<ZkDocument> {
         require(request.sessionTranscript != null) {"No or too many documents found!"}
-        val deviceResponsesForZk: Map<DeviceResponse, SystemSpec> = credentialAndRequestedClaimsAndSpec
+        val zkCompatibleCredentialAndRequestedClaimsAndSpec = credentialAndRequestedClaimsAndSpec
             .filter { (_, claimsAndSpec) ->
                 val (_, spec) = claimsAndSpec
                 !(spec.allowedZkSpec.isEmpty() && !spec.forceZk)
             }
-            .map { (credential, claimsAndSpec) ->
-                val (requestedClaims, spec) = claimsAndSpec
-                val document = buildPlainDocuments(
-                    request = request,
-                    credentialAndRequestedClaims = mapOf(credential to requestedClaims)
-                ).single()
 
-                val deviceResponse = DeviceResponse(
-                    version = "1.0",
-                    documents = arrayOf(document),
-                    status = 0U,
-                )
-
-                deviceResponse to spec
-            }.toMap()
-        val zkDocuments = deviceResponsesForZk.map { (deviceResponse, systemSpec) ->
-            deviceResponse.documents?.singleOrNull()
-                ?: throw IllegalStateException("No or too many documents found!")
-
-            // TODO: redo this, because it might be empty/etc
-            val zkSystemSpecs = systemSpec.allowedZkSpec
-
-            val proof = IsoMdocProofRegistry.generate(
-                sessionTranscript = request.sessionTranscript,
-                deviceResponse = deviceResponse,
-                zkSystemSpecs = zkSystemSpecs,
-            )
-
-            proof.toZkDocument()
+        val zkDocuments = zkCompatibleCredentialAndRequestedClaimsAndSpec.map {
+            IsoMdocProofRegistry.generate(
+                request = request,
+                credentialAndRequestedClaimsAndSpec = it
+            ).toZkDocument()
         }
+
         return zkDocuments
     }
 
