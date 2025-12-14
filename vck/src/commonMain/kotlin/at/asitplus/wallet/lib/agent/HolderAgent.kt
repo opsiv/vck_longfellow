@@ -258,7 +258,7 @@ class HolderAgent(
 
         val verifiablePresentations = credentialSubmissions.mapValues { (queryId, submission) ->
             val credentialQuery = dcqlQuery.credentials.find { it.id == queryId }
-            val forceZk = credentialQuery?.let {it.format == CredentialFormatEnum.MSO_MDOC_ZK} ?: false
+            val forceZk = credentialQuery?.format?.isZeroKnowledge() ?: false
             val systemSpec = (credentialQuery?.meta as? DCQLIsoMdocCredentialMetadataAndValidityConstraints)
                 ?.zkSystemType?.toSystemSpec(forceZk)
 

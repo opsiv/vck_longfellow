@@ -26,9 +26,13 @@ enum class CredentialFormatEnum(val text: String) {
 
         if (thisNormalized == requestedNormalized) return true
 
-        if (thisNormalized == MSO_MDOC && requestedNormalized == CredentialFormatEnum.MSO_MDOC_ZK) return true
+        if (thisNormalized == MSO_MDOC && requestedNormalized == MSO_MDOC_ZK) return true
 
         return false
+    }
+
+    fun isZeroKnowledge(): Boolean {
+        return this == MSO_MDOC_ZK
     }
 
     companion object {
