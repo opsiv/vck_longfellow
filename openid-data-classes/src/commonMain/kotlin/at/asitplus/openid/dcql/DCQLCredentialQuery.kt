@@ -141,7 +141,7 @@ sealed interface DCQLCredentialQuery {
         sdJwtCredentialTypeExtractor: (Credential) -> String,
         credentialClaimStructureExtractor: (Credential) -> DCQLCredentialClaimStructure,
     ): KmmResult<DCQLCredentialQueryMatchingResult> = catching {
-        if (credentialFormatExtractor(credential) != format) {
+        if (credentialFormatExtractor(credential).coerceDeprecations() != format.coerceDeprecations()) {
             throw IllegalArgumentException("Incompatible credential format")
         }
 
