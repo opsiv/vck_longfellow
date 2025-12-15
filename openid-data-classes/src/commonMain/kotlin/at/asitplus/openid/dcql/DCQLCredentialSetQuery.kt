@@ -19,7 +19,7 @@ data class DCQLCredentialSetQuery(
      * reference elements in credentials.
      */
     @SerialName("options")
-    val options: List<List<DCQLCredentialQueryIdentifier>>,
+    val options: NonEmptyList<List<DCQLCredentialQueryIdentifier>>,
 
     /**
      * OID4VP draft 23: required: OPTIONAL. A boolean which indicates whether this set of
