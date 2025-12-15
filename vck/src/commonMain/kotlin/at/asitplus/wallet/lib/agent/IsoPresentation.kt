@@ -20,79 +20,77 @@ import kotlin.collections.component1
 import kotlin.collections.component2
 
 object IsoPresentation {
-    // TODO: Move this function somewhere else
-    internal suspend fun buildPlainDocuments(
+
+    // TODO: this functions feels out of place here, since it it also used in [IsoMdocLongfellowZkProof.kt]
+    internal suspend fun buildPlainDocument(
         request: PresentationRequestParameters,
-        credentialAndRequestedClaims: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>
-    ): List<Document> {
-        val documents = credentialAndRequestedClaims.map { (credential, requestedClaims) ->
-            // allows disclosure of attributes from different namespaces
-            val namespaceToAttributesMap = requestedClaims.mapNotNull { normalizedJsonPath ->
-                // namespace + attribute
-                val firstTwoNameSegments = normalizedJsonPath.segments.filterIndexed { index, _ ->
-                    // TODO: unsure how to deal with attributes with a depth of more than 2
-                    //  revealing the whole attribute for now, which is as fine grained as MDOC can do anyway
-                    index < 2
-                }.filterIsInstance<NormalizedJsonPathSegment.NameSegment>()
-                if (firstTwoNameSegments.size == 2) {
-                    val namespace = firstTwoNameSegments[0].memberName
-                    val attributeName = firstTwoNameSegments[1].memberName
-                    namespace to attributeName
-                } else {
-                    // TODO: Not a namespaced attribute, how to deal with these?
-                    //  treating them as fields that are inherent to the credential for now
-                    //  -> no need for selective disclosure
-                    null
-                }
-            }.groupBy {
-                it.first  // grouping by namespace
-            }.mapValues {
-                // unrolling values to just the list of attribute names for that namespace
-                it.value.map { it.second }
+        credential: SubjectCredentialStore.StoreEntry.Iso,
+        requestedClaims: Collection<NormalizedJsonPath>
+    ): Document {
+        val namespaceToAttributesMap = requestedClaims.mapNotNull { normalizedJsonPath ->
+            // namespace + attribute
+            val firstTwoNameSegments = normalizedJsonPath.segments.filterIndexed { index, _ ->
+                // TODO: unsure how to deal with attributes with a depth of more than 2
+                //  revealing the whole attribute for now, which is as fine grained as MDOC can do anyway
+                index < 2
+            }.filterIsInstance<NormalizedJsonPathSegment.NameSegment>()
+            if (firstTwoNameSegments.size == 2) {
+                val namespace = firstTwoNameSegments[0].memberName
+                val attributeName = firstTwoNameSegments[1].memberName
+                namespace to attributeName
+            } else {
+                // TODO: Not a namespaced attribute, how to deal with these?
+                //  treating them as fields that are inherent to the credential for now
+                //  -> no need for selective disclosure
+                null
             }
-            val disclosedItems = namespaceToAttributesMap.mapValues { namespaceToAttributeNamesEntry ->
-                val namespace = namespaceToAttributeNamesEntry.key
-                val attributeNames = namespaceToAttributeNamesEntry.value
-                attributeNames.map { attributeName ->
-                    credential.issuerSigned.namespaces?.get(
-                        namespace
-                    )?.entries?.find {
-                        it.value.elementIdentifier == attributeName
-                    }?.value
-                        ?: throw PresentationException("Attribute not available in credential: $['$namespace']['$attributeName']")
-                }
+        }.groupBy {
+            it.first  // grouping by namespace
+        }.mapValues {
+            // unrolling values to just the list of attribute names for that namespace
+            it.value.map { it.second }
+        }
+        val disclosedItems = namespaceToAttributesMap.mapValues { namespaceToAttributeNamesEntry ->
+            val namespace = namespaceToAttributeNamesEntry.key
+            val attributeNames = namespaceToAttributeNamesEntry.value
+            attributeNames.map { attributeName ->
+                credential.issuerSigned.namespaces?.get(
+                    namespace
+                )?.entries?.find {
+                    it.value.elementIdentifier == attributeName
+                }?.value
+                    ?: throw PresentationException("Attribute not available in credential: $['$namespace']['$attributeName']")
             }
+        }
 
-            val docType = credential.scheme?.isoDocType ?: credential.issuerSigned.issuerAuth.payload?.docType
-            ?: throw PresentationException("Scheme not known or not registered")
-            val deviceNameSpaceBytes = ByteStringWrapper(DeviceNameSpaces(mapOf()))
-            val input = IsoDeviceSignatureInput(docType, deviceNameSpaceBytes)
-            val deviceSignature = request.calcIsoDeviceSignaturePlain(input)
-                ?: throw PresentationException("calcIsoDeviceSignature not implemented")
+        val docType = credential.scheme?.isoDocType ?: credential.issuerSigned.issuerAuth.payload?.docType
+        ?: throw PresentationException("Scheme not known or not registered")
+        val deviceNameSpaceBytes = ByteStringWrapper(DeviceNameSpaces(mapOf()))
+        val input = IsoDeviceSignatureInput(docType, deviceNameSpaceBytes)
+        val deviceSignature = request.calcIsoDeviceSignaturePlain(input)
+            ?: throw PresentationException("calcIsoDeviceSignature not implemented")
 
-            Document(
-                docType = docType,
-                issuerSigned = IssuerSigned.fromIssuerSignedItems(
-                    namespacedItems = disclosedItems,
-                    issuerAuth = credential.issuerSigned.issuerAuth
-                ),
-                deviceSigned = DeviceSigned(
-                    namespaces = deviceNameSpaceBytes,
-                    deviceAuth = DeviceAuth(
-                        deviceSignature = deviceSignature
-                    )
+        return Document(
+            docType = docType,
+            issuerSigned = IssuerSigned.fromIssuerSignedItems(
+                namespacedItems = disclosedItems,
+                issuerAuth = credential.issuerSigned.issuerAuth
+            ),
+            deviceSigned = DeviceSigned(
+                namespaces = deviceNameSpaceBytes,
+                deviceAuth = DeviceAuth(
+                    deviceSignature = deviceSignature
                 )
             )
-        }
-        return documents
+        )
     }
 
-    suspend fun createZkDocument(request: PresentationRequestParameters,
-         credentialAndRequestedClaimsAndSpec: Map<
+    suspend fun createZkDocuments(request: PresentationRequestParameters,
+                                  credentialAndRequestedClaimsAndSpec: Map<
                  SubjectCredentialStore.StoreEntry.Iso,
                  Pair<Collection<NormalizedJsonPath>, SystemSpec>
              >,
-    ): Collection<ZkDocument> {
+    ): Map<SubjectCredentialStore.StoreEntry.Iso, ZkDocument> {
         require(request.sessionTranscript != null) {"No or too many documents found!"}
         val zkCompatibleCredentialAndRequestedClaimsAndSpec = credentialAndRequestedClaimsAndSpec
             .filter { (_, claimsAndSpec) ->
@@ -100,14 +98,13 @@ object IsoPresentation {
                 !(spec.allowedZkSpec.isEmpty() && !spec.forceZk)
             }
 
-        val zkDocuments = zkCompatibleCredentialAndRequestedClaimsAndSpec.map {
+        return zkCompatibleCredentialAndRequestedClaimsAndSpec.mapValues {
+            // TODO: allow soft fail in order to fall back to PlainDocuments
             IsoMdocProofRegistry.generate(
                 request = request,
                 credentialAndRequestedClaimsAndSpec = it
             ).toZkDocument()
         }
-
-        return zkDocuments
     }
 
     suspend fun createPlainDocuments(
@@ -116,16 +113,15 @@ object IsoPresentation {
                 SubjectCredentialStore.StoreEntry.Iso,
                 Pair<Collection<NormalizedJsonPath>, SystemSpec>
             >,
-    ): Collection<Document> {
-        return buildPlainDocuments(
-            request = request,
-            credentialAndRequestedClaims = credentialAndRequestedClaimsAndSpec
-                .filter { (_, claimsAndSpec) ->
-                    val (_, spec) = claimsAndSpec
-                    spec.allowedZkSpec.isEmpty() && !spec.forceZk
-                }.mapValues { it.value.first }
-        )
-    }
+    ): Map<SubjectCredentialStore.StoreEntry.Iso, Document> = credentialAndRequestedClaimsAndSpec
+        .filter { (_, claimsAndSpec) ->
+            val (_, spec) = claimsAndSpec
+            !spec.forceZk
+        }
+        .mapValues { it.value.first }
+        .mapValues { (credential, requestedClaims) ->
+            buildPlainDocument(request, credential, requestedClaims)
+        }
 
 
     suspend fun createPresentation(
@@ -135,22 +131,35 @@ object IsoPresentation {
             Pair<Collection<NormalizedJsonPath>, SystemSpec>
         >,
     ): CreatePresentationResult {
-        val zkDocuments = createZkDocument(
-            request = request,
-            credentialAndRequestedClaimsAndSpec = credentialAndRequestedClaimsAndSpec,
-        )
+        var remainingCredentials = credentialAndRequestedClaimsAndSpec
 
-        val documents = createPlainDocuments(
+        val credentialAndZkDocuments = createZkDocuments(
             request = request,
-            credentialAndRequestedClaimsAndSpec = credentialAndRequestedClaimsAndSpec,
+            credentialAndRequestedClaimsAndSpec = remainingCredentials,
         )
+        remainingCredentials = remainingCredentials.filterKeys {
+            it !in credentialAndZkDocuments.keys
+        }
 
+        // only take the remaining documents to create plain documents
+        val credentialAndDocuments = createPlainDocuments(
+            request = request,
+            credentialAndRequestedClaimsAndSpec = remainingCredentials,
+        )
+        remainingCredentials = remainingCredentials.filterKeys {
+            it !in credentialAndDocuments.keys
+        }
+
+        val zkDocuments =  credentialAndZkDocuments.values.toTypedArray().takeIf { it.isNotEmpty() }
+        val documents = credentialAndDocuments.values.toTypedArray().takeIf { it.isNotEmpty() }
+
+        require(remainingCredentials.isEmpty()) { "Not all credentials have been successfully created!" }
 
         return CreatePresentationResult.DeviceResponse(
             deviceResponse = DeviceResponse(
                 version = "1.0",
-                zkDocuments = zkDocuments.toTypedArray().takeIf { it.isNotEmpty() },
-                documents = documents.toTypedArray().takeIf { it.isNotEmpty() },
+                zkDocuments = zkDocuments,
+                documents = documents,
                 status = 0U,
             ),
             mdocGeneratedNonce = request.mdocGeneratedNonce
@@ -158,8 +167,8 @@ object IsoPresentation {
 
     }
 
-
 }
+
 @JvmName("toIssuerDisclosed")
 fun Map<String, IssuerSignedList>?.toDisclosed(): Map<String, ZkSignedList>? {
     return this?.mapValues { (_, issuerList) ->

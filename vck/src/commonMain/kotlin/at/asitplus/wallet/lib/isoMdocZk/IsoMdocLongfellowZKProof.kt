@@ -14,7 +14,6 @@ import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.signum.indispensable.pki.X509Certificate
 import at.asitplus.wallet.lib.agent.IsoPresentation
-import at.asitplus.wallet.lib.agent.IsoPresentation.buildPlainDocuments
 import at.asitplus.wallet.lib.agent.PresentationRequestParameters
 import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 import at.asitplus.wallet.lib.agent.toDisclosed
@@ -69,7 +68,7 @@ class IsoMdocLongfellowZKProof (
         const val systemIdentifier = "longfellow-libzk-v1"
 
         override fun supports(zkSystemSpec: ZkSystemSpec): Boolean {
-            // TODO: Consider more validation eg with
+            // TODO: Consider more validation eg. with
             //  attribute count and circuit validation with
             //  val attributeCount = namespaces.values.sumOf { it.entries.size }
             return zkSystemSpec.system == systemIdentifier &&
@@ -86,16 +85,17 @@ class IsoMdocLongfellowZKProof (
 
             require(request.sessionTranscript != null) {"No or too many documents found!"}
 
-            val document = IsoPresentation.buildPlainDocuments(
+            val document = IsoPresentation.buildPlainDocument(
                 request = request,
-                credentialAndRequestedClaims = mapOf(credential to requestedClaims)
-            ).single()
+                credential = credential,
+                requestedClaims = requestedClaims,
+            )
             val deviceResponse = DeviceResponse(
                 version = "1.0",
                 documents = arrayOf(document),
                 status = 0U,
             )
-            // TODO: remove this check
+            // TODO: remove this check after migrating to new upstream codebase
             if (!isIso8601Compliant(document.issuerSigned.issuerAuth.payload?.validityInfo))
                 throw IllegalStateException("Timestamps do not follow ISO-8601 (precision to seconds)")
 
@@ -178,6 +178,7 @@ class IsoMdocLongfellowZKProof (
             return issuerKey
         }
     }
+
 }
 
 // TODO: delete this. It is just a sanity check, because during development, we didnt properly follow the ISO spec
