@@ -124,9 +124,7 @@ data class RequestOptions(
                 val format = when (credential.representation) {
                     CredentialRepresentation.PLAIN_JWT -> CredentialFormatEnum.JWT_VC
                     CredentialRepresentation.SD_JWT -> CredentialFormatEnum.DC_SD_JWT
-                    CredentialRepresentation.ISO_MDOC ->
-                        if (credential.zkSystemTypes != null) CredentialFormatEnum.MSO_MDOC_ZK
-                        else CredentialFormatEnum.MSO_MDOC
+                    CredentialRepresentation.ISO_MDOC -> CredentialFormatEnum.MSO_MDOC
                 }
                 val meta = when (credential.representation) {
                     CredentialRepresentation.PLAIN_JWT -> DCQLEmptyCredentialMetadataAndValidityConstraints
@@ -238,7 +236,7 @@ data class RequestOptionsCredential(
     /** ID to be used in [DifInputDescriptor] or [QesInputDescriptor], or [DCQLCredentialQueryInstance] */
     val id: String = uuid4().toString(),
 
-    val zkSystemTypes: NonEmptyList<DCQLZkSystemType>? = null,
+    val zkSystemTypes: List<DCQLZkSystemType>? = null,
 ) {
     fun buildId() = if (isMdoc) credentialScheme.isoDocType!! else id
 

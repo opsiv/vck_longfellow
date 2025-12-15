@@ -43,6 +43,7 @@ import at.asitplus.openid.TransactionDataBase64Url
 import at.asitplus.openid.VpFormatsSupported
 import at.asitplus.openid.dcql.DCQLCredentialQueryIdentifier
 import at.asitplus.openid.dcql.DCQLIsoMdocCredentialMetadataAndValidityConstraints
+import at.asitplus.openid.dcql.DCQLZkSystemType
 import at.asitplus.signum.indispensable.SignatureAlgorithm
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.signum.indispensable.cosef.toCoseAlgorithm
@@ -574,10 +575,10 @@ class OpenId4VpVerifier(
                                 it.id == usedCircuitId
                             }?.let {
                                 ZkSystemSpec(
-                                    zkSystemId = it.id!!,
+                                    zkSystemId = it.id,
                                     system = it.system,
                                     params = mapOf(
-                                        "circuit_hash" to it.circuitHash,
+                                        DCQLZkSystemType.PROP_CIRCUIT_HASH to it.circuitHash,
                                     )
                                 )
                             }
@@ -617,7 +618,6 @@ class OpenId4VpVerifier(
             -> ClaimFormat.SD_JWT
 
         CredentialFormatEnum.MSO_MDOC,
-        CredentialFormatEnum.MSO_MDOC_ZK
             -> ClaimFormat.MSO_MDOC
 
         CredentialFormatEnum.NONE,

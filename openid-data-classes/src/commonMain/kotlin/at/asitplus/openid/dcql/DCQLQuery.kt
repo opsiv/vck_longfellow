@@ -157,7 +157,7 @@ data class DCQLQuery(
                             option.all {
                                 credentialQueryMatches[it]?.isNotEmpty() == true
                             }
-                        }.toNonEmptyList()
+                        }.toList()
                     )
                 }.getOrElse {
                     if (credentialSetQuery.required) {

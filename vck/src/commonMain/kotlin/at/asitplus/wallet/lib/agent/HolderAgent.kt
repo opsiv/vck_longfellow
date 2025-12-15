@@ -258,9 +258,9 @@ class HolderAgent(
 
         val verifiablePresentations = credentialSubmissions.mapValues { (queryId, submission) ->
             val credentialQuery = dcqlQuery.credentials.find { it.id == queryId }
-            val forceZk = credentialQuery?.format?.isZeroKnowledge() ?: false
-            val systemSpec = (credentialQuery?.meta as? DCQLIsoMdocCredentialMetadataAndValidityConstraints)
-                ?.zkSystemType?.toSystemSpec(forceZk)
+            val meta = credentialQuery?.meta as? DCQLIsoMdocCredentialMetadataAndValidityConstraints
+
+            val systemSpec = meta?.zkSystemType?.toSystemSpec()
 
             verifiablePresentationFactory.createVerifiablePresentation(
                 request = request,
@@ -273,8 +273,8 @@ class HolderAgent(
         PresentationResponseParameters.DCQLParameters(verifiablePresentations)
     }
 
-    private fun List<DCQLZkSystemType>.toSystemSpec(forceZk: Boolean): SystemSpec {
-        val zkSystemSpecs = this.map { dcqlZkSystemType ->
+    private fun List<DCQLZkSystemType>?.toSystemSpec(): SystemSpec {
+        val zkSystemSpecs = this?.map { dcqlZkSystemType ->
             ZkSystemSpec(
                 system = dcqlZkSystemType.system,
                 zkSystemId = dcqlZkSystemType.id,
@@ -288,8 +288,8 @@ class HolderAgent(
             )
         }
         return SystemSpec(
-            allowedZkSpec = zkSystemSpecs,
-            forceZk = forceZk,
+            allowedZkSpec = zkSystemSpecs ?: emptyList(),
+            forceZk = zkSystemSpecs != null,
         )
     }
 

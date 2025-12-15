@@ -14,8 +14,7 @@ object DCQLCredentialQuerySerializer : JsonContentPolymorphicSerializer<DCQLCred
             CredentialFormatEnum.parse(it)
         }
         return when(credentialFormatIdentifier?.coerceDeprecations()) {
-            CredentialFormatEnum.MSO_MDOC,
-            CredentialFormatEnum.MSO_MDOC_ZK -> DCQLIsoMdocCredentialQuery.serializer()
+            CredentialFormatEnum.MSO_MDOC -> DCQLIsoMdocCredentialQuery.serializer()
             CredentialFormatEnum.DC_SD_JWT -> DCQLSdJwtCredentialQuery.serializer()
             else -> DCQLCredentialQueryInstance.serializer()
         }

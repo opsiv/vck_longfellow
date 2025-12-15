@@ -11,8 +11,7 @@ enum class CredentialFormatEnum(val text: String) {
     DC_SD_JWT("dc+sd-jwt"),
     JWT_VC_JSON_LD("jwt_vc_json-ld"),
     JSON_LD("ldp_vc"),
-    MSO_MDOC("mso_mdoc"),
-    MSO_MDOC_ZK("mso_mdoc_zk");
+    MSO_MDOC("mso_mdoc");
 
     @Suppress("DEPRECATION")
     fun coerceDeprecations() = when(this) {
@@ -20,22 +19,11 @@ enum class CredentialFormatEnum(val text: String) {
         else -> this
     }
 
-    fun isCompatibleWith(requestedFormat: CredentialFormatEnum): Boolean {
-        val thisNormalized = this.coerceDeprecations()
-        val requestedNormalized = requestedFormat.coerceDeprecations()
-
-        if (thisNormalized == requestedNormalized) return true
-
-        if (thisNormalized == MSO_MDOC && requestedNormalized == MSO_MDOC_ZK) return true
-
-        return false
-    }
-
-    fun isZeroKnowledge(): Boolean {
-        return this == MSO_MDOC_ZK
-    }
-
     companion object {
-        fun parse(text: String) = entries.firstOrNull { it.text == text }
+        fun parse(text: String): CredentialFormatEnum? =
+            when (text) {
+                "mso_mdoc_zk" -> MSO_MDOC // Alias for DCQLQuery with "mso_mdoc_zk" format
+                else -> entries.firstOrNull { it.text == text }
+            }
     }
 }

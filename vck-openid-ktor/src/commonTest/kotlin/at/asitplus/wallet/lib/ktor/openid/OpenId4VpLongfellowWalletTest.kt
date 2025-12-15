@@ -253,7 +253,7 @@ val OpenId4VpLongfellowWalletTest by testSuite {
                     list = nonEmptyListOf(
                         DCQLIsoMdocCredentialQuery(
                             id = DCQLCredentialQueryIdentifier("cred1"),
-                            format = CredentialFormatEnum.MSO_MDOC_ZK,
+                            format = CredentialFormatEnum.MSO_MDOC, // should actually be mso_mdoc_zk
                             meta = DCQLIsoMdocCredentialMetadataAndValidityConstraints(
                                 doctypeValue = MobileDrivingLicenceScheme.isoDocType,
                                 zkSystemType = nonEmptyListOf(

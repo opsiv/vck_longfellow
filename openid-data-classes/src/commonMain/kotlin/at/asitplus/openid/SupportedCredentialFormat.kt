@@ -110,7 +110,7 @@ data class SupportedCredentialFormat private constructor(
     fun withSupportedSigningAlgorithms(supportedSigningAlgorithms: Set<SignatureAlgorithm>) =
         copy(
             supportedSigningAlgorithmsJson = supportedSigningAlgorithms.mapNotNull {
-                if (format == CredentialFormatEnum.MSO_MDOC || format == CredentialFormatEnum.MSO_MDOC_ZK)
+                if (format == CredentialFormatEnum.MSO_MDOC)
                     it.toCoseAlgorithm().getOrNull()?.coseValue?.let { JsonPrimitive(it) }
                 else
                     it.toJwsAlgorithm().getOrNull()?.identifier?.let { JsonPrimitive(it) }

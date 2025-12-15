@@ -29,17 +29,13 @@ data class DCQLIsoMdocCredentialQuery(
     }
 
     companion object {
-        private val validCredentialFormats = setOf(
-            CredentialFormatEnum.MSO_MDOC,
-            CredentialFormatEnum.MSO_MDOC_ZK
-        )
 
         fun validate(query: DCQLIsoMdocCredentialQuery) = query.run {
             DCQLCredentialQuery.validate(this)
-            if (format !in validCredentialFormats) {
+            if (format != CredentialFormatEnum.MSO_MDOC) {
                 throw IllegalArgumentException("Value has an invalid format identifier in this context.")
             }
-            if (format == CredentialFormatEnum.MSO_MDOC_ZK && meta.zkSystemType == null) {
+            if (meta.zkSystemType?.isEmpty() ?: false) {
                 throw IllegalArgumentException("No acceptable zero knowledge system types provided.")
             }
 

@@ -17,5 +17,5 @@ data class DocRequestInfo(
     val zkRequest: ZkRequest? = null,
     @SerialName("docResponseEncryption")
     val docResponseEncryption: EncryptionParameters? = null,
-    // TODO: alternativeDataElements
+    // TODO: alternativeDataElements is missing
 )

@@ -21,7 +21,7 @@ data class DCQLIsoMdocCredentialMetadataAndValidityConstraints(
      * See https://github.com/google/longfellow-zk/blob/main/docs/content/en/docs/zk-system-spec.md
      */
     @SerialName(SerialNames.ZK_SYSTEM_TYPE)
-    val zkSystemType: NonEmptyList<DCQLZkSystemType>? = null,
+    val zkSystemType: List<DCQLZkSystemType>? = null,
 
 ) : DCQLCredentialMetadataAndValidityConstraints {
     object SerialNames {
