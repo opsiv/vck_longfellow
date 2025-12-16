@@ -715,7 +715,7 @@ class OpenId4VpVerifier(
                         clientId = clientId,
                         responseUrl = responseUrl,
                         nonce = nonce,
-                        encrypted = mdocGeneratedNonce.isNotEmpty()
+                        hasBeenEncrypted = mdocGeneratedNonce.isNotEmpty()
                     ),
                     zkSystemSpecs = listOf(zkSystemSpec) // TODO: rethink this approach. because there should only be one
                 )
@@ -745,7 +745,7 @@ class OpenId4VpVerifier(
             clientId = clientId,
             responseUrl = responseUrl,
             nonce = nonce,
-            encrypted = mdocGeneratedNonce.isNotEmpty()
+            hasBeenEncrypted = mdocGeneratedNonce.isNotEmpty()
         ).wrapAsExpectedPayload()
 
         verifyCoseSignature(deviceSignature, walletKey, byteArrayOf(), expected).onFailure {
@@ -776,7 +776,7 @@ class OpenId4VpVerifier(
         clientId: String?,
         responseUrl: String?,
         nonce: String,
-        encrypted: Boolean,
+        hasBeenEncrypted: Boolean,
     ): SessionTranscript {
         if (clientId == null || responseUrl == null)
             throw IllegalStateException("Missing required parameters: clientId, responseUrl")
@@ -788,7 +788,7 @@ class OpenId4VpVerifier(
                     OpenId4VpHandoverInfo(
                         clientId = clientId,
                         nonce = nonce,
-                        jwkThumbprint = if (encrypted) {
+                        jwkThumbprint = if (hasBeenEncrypted) {
                             decryptionKeyMaterial.jsonWebKey.sessionTranscriptThumbprint()
                         } else null,
                         responseUrl = responseUrl,
@@ -806,14 +806,14 @@ class OpenId4VpVerifier(
         clientId: String,
         responseUrl: String,
         nonce: String,
-        encrypted: Boolean,
+        hasBeenEncrypted: Boolean,
     ) = DeviceAuthentication(
         type = DeviceAuthentication.TYPE,
         sessionTranscript = calcSessionTranscriptOpenId4VpFinal(
             clientId = clientId,
             responseUrl = responseUrl,
             nonce = nonce,
-            encrypted = encrypted
+            hasBeenEncrypted = hasBeenEncrypted
         ),
         docType = docType,
         namespaces = deviceSigned.namespaces

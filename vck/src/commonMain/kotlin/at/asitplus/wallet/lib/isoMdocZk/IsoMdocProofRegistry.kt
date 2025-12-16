@@ -1,10 +1,10 @@
 package at.asitplus.wallet.lib.isoMdocZk
 
-import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.SessionTranscript
 import at.asitplus.iso.ZkDocument
 import at.asitplus.iso.ZkSystemSpec
 import at.asitplus.jsonpath.core.NormalizedJsonPath
+import at.asitplus.wallet.lib.agent.IsoPresentationMeta
 import at.asitplus.wallet.lib.agent.PresentationRequestParameters
 import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 
@@ -34,17 +34,13 @@ object IsoMdocProofRegistry {
         error("Unsupported zkSystemSpecs: $zkSystemSpecs")
     }
 
-
     suspend fun generate(
         request: PresentationRequestParameters,
-        credentialAndRequestedClaimsAndSpec: Map.Entry<
-            SubjectCredentialStore.StoreEntry.Iso,
-            Pair<Collection<NormalizedJsonPath>, SystemSpec>
-        >): IsoMdocZkProof {
-        val credential = credentialAndRequestedClaimsAndSpec.key
-        val (requestedClaims, systemSpec) = credentialAndRequestedClaimsAndSpec.value
-        val (isoMdocZkProofFactory, zkSystemSpec) = findFactory(systemSpec.allowedZkSpec)
-        return isoMdocZkProofFactory.generate(request, credential, requestedClaims, zkSystemSpec)
+        credentialAndMeta: Map.Entry<SubjectCredentialStore.StoreEntry.Iso, IsoPresentationMeta>): IsoMdocZkProof {
+        val credential = credentialAndMeta.key
+        val meta = credentialAndMeta.value
+        val (isoMdocZkProofFactory, zkSystemSpec) = findFactory(meta.spec.allowedZkSpec)
+        return isoMdocZkProofFactory.generate(request, credential, meta.claims, zkSystemSpec)
     }
 
     // TODO: unfortunately we only have the sessionTranscript here instead of all of the PresentationRequestParameters,

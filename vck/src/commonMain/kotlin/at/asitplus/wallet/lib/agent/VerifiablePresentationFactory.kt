@@ -2,15 +2,11 @@ package at.asitplus.wallet.lib.agent
 
 import at.asitplus.KmmResult
 import at.asitplus.catching
-import at.asitplus.iso.ZkSystemSpec
 import at.asitplus.iso.sha256
 import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.jsonpath.core.NormalizedJsonPathSegment
-import at.asitplus.openid.CredentialFormatEnum
 import at.asitplus.openid.dcql.DCQLClaimsQueryResult
-import at.asitplus.openid.dcql.DCQLCredentialQuery
 import at.asitplus.openid.dcql.DCQLCredentialQueryMatchingResult
-import at.asitplus.openid.dcql.DCQLIsoMdocCredentialMetadataAndValidityConstraints
 import at.asitplus.openid.truncateToSeconds
 import at.asitplus.signum.indispensable.Digest
 import at.asitplus.signum.indispensable.josef.JwsSigned
@@ -48,7 +44,7 @@ class VerifiablePresentationFactory(
         ): KmmResult<CreatePresentationResult> = catching {
         IsoPresentation.createPresentation(
             request = request,
-            credentialAndRequestedClaimsAndSpec = credentialAndDisclosedAttributes.mapValues { it.value to SystemSpec.Default },
+            credentialsAndMeta = credentialAndDisclosedAttributes.mapValues { IsoPresentationMeta(it.value) },
         )
     }
 
@@ -72,7 +68,7 @@ class VerifiablePresentationFactory(
             is SubjectCredentialStore.StoreEntry.Iso -> {
                 IsoPresentation.createPresentation(
                     request = request,
-                    credentialAndRequestedClaimsAndSpec = mapOf(credential to (disclosedAttributes to SystemSpec.Default)),
+                    credentialsAndMeta = mapOf(credential to IsoPresentationMeta(disclosedAttributes)),
                 )
             }
         }
@@ -114,12 +110,12 @@ class VerifiablePresentationFactory(
                 val requestedClaims = disclosedAttributes.toRequestedIsoClaims(credential)
                 val spec = systemSpec ?: SystemSpec.Default
                 // Since we are in the DCQL flow there is only 1 single credential, so we can just directly map here
-                val credentialAndRequestedClaimsAndSpec = mapOf(
-                    credential to (requestedClaims to spec),
+                val credentialAndMeta = mapOf(
+                    credential to IsoPresentationMeta(requestedClaims, spec),
                 )
                 IsoPresentation.createPresentation(
                     request = request,
-                    credentialAndRequestedClaimsAndSpec = credentialAndRequestedClaimsAndSpec,
+                    credentialsAndMeta = credentialAndMeta,
                 )
             }
         }

@@ -15,7 +15,6 @@ import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.jsonpath.core.NormalizedJsonPathSegment
 import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
 import at.asitplus.wallet.lib.isoMdocZk.IsoMdocProofRegistry
-import at.asitplus.wallet.lib.isoMdocZk.SystemSpec
 import kotlin.collections.component1
 import kotlin.collections.component2
 
@@ -86,39 +85,27 @@ object IsoPresentation {
     }
 
     suspend fun createZkDocuments(request: PresentationRequestParameters,
-                                  credentialAndRequestedClaimsAndSpec: Map<
-                 SubjectCredentialStore.StoreEntry.Iso,
-                 Pair<Collection<NormalizedJsonPath>, SystemSpec>
-             >,
+                                  credentialsAndMeta: Map<SubjectCredentialStore.StoreEntry.Iso, IsoPresentationMeta>,
     ): Map<SubjectCredentialStore.StoreEntry.Iso, ZkDocument> {
         require(request.sessionTranscript != null) {"No or too many documents found!"}
-        val zkCompatibleCredentialAndRequestedClaimsAndSpec = credentialAndRequestedClaimsAndSpec
-            .filter { (_, claimsAndSpec) ->
-                val (_, spec) = claimsAndSpec
-                !(spec.allowedZkSpec.isEmpty() && !spec.forceZk)
-            }
+        val zkCompatibleCredentialsAndMeta = credentialsAndMeta
+            .filter { (_, meta) -> !(meta.spec.allowedZkSpec.isEmpty() && !meta.spec.forceZk) }
 
-        return zkCompatibleCredentialAndRequestedClaimsAndSpec.mapValues {
+        return zkCompatibleCredentialsAndMeta.mapValues {
             // TODO: allow soft fail in order to fall back to PlainDocuments
             IsoMdocProofRegistry.generate(
                 request = request,
-                credentialAndRequestedClaimsAndSpec = it
+                credentialAndMeta = it
             ).toZkDocument()
         }
     }
 
     suspend fun createPlainDocuments(
         request: PresentationRequestParameters,
-        credentialAndRequestedClaimsAndSpec: Map<
-                SubjectCredentialStore.StoreEntry.Iso,
-                Pair<Collection<NormalizedJsonPath>, SystemSpec>
-            >,
-    ): Map<SubjectCredentialStore.StoreEntry.Iso, Document> = credentialAndRequestedClaimsAndSpec
-        .filter { (_, claimsAndSpec) ->
-            val (_, spec) = claimsAndSpec
-            !spec.forceZk
-        }
-        .mapValues { it.value.first }
+        credentialsAndMeta: Map<SubjectCredentialStore.StoreEntry.Iso, IsoPresentationMeta>,
+    ): Map<SubjectCredentialStore.StoreEntry.Iso, Document> = credentialsAndMeta
+        .filter { (_, meta) -> !meta.spec.forceZk }
+        .mapValues { it.value.claims }
         .mapValues { (credential, requestedClaims) ->
             buildPlainDocument(request, credential, requestedClaims)
         }
@@ -126,16 +113,16 @@ object IsoPresentation {
 
     suspend fun createPresentation(
         request: PresentationRequestParameters,
-        credentialAndRequestedClaimsAndSpec: Map<
+        credentialsAndMeta: Map<
             SubjectCredentialStore.StoreEntry.Iso,
-            Pair<Collection<NormalizedJsonPath>, SystemSpec>
+            IsoPresentationMeta
         >,
     ): CreatePresentationResult {
-        var remainingCredentials = credentialAndRequestedClaimsAndSpec
+        var remainingCredentials = credentialsAndMeta
 
         val credentialAndZkDocuments = createZkDocuments(
             request = request,
-            credentialAndRequestedClaimsAndSpec = remainingCredentials,
+            credentialsAndMeta = remainingCredentials,
         )
         remainingCredentials = remainingCredentials.filterKeys {
             it !in credentialAndZkDocuments.keys
@@ -144,7 +131,7 @@ object IsoPresentation {
         // only take the remaining documents to create plain documents
         val credentialAndDocuments = createPlainDocuments(
             request = request,
-            credentialAndRequestedClaimsAndSpec = remainingCredentials,
+            credentialsAndMeta = remainingCredentials,
         )
         remainingCredentials = remainingCredentials.filterKeys {
             it !in credentialAndDocuments.keys

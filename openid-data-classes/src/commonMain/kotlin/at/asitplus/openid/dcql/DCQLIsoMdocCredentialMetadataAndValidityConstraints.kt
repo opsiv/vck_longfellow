@@ -33,8 +33,12 @@ data class DCQLIsoMdocCredentialMetadataAndValidityConstraints(
         if (actualDoctypeValue != doctypeValue) {
             throw IllegalArgumentException("Incompatible MDOC document type.")
         }
-        zkSystemType?.let { types ->
-            val ids = types.map { it.id }
+
+        zkSystemType?.let { zkTypes ->
+            if (zkTypes.isEmpty()) {
+                throw IllegalArgumentException("No acceptable zero knowledge system types provided.")
+            }
+            val ids = zkTypes.map { it.id }
             if (ids.size != ids.distinct().size) {
                 throw IllegalArgumentException("zkSystemType ids must be unique in the list of ids ($ids)")
             }
