@@ -3,7 +3,6 @@ package at.asitplus.wallet.lib.isoMdocZk
 import at.asitplus.iso.SessionTranscript
 import at.asitplus.iso.ZkDocument
 import at.asitplus.iso.ZkSystemSpec
-import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.wallet.lib.agent.IsoPresentationMeta
 import at.asitplus.wallet.lib.agent.PresentationRequestParameters
 import at.asitplus.wallet.lib.agent.SubjectCredentialStore
@@ -11,7 +10,7 @@ import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 // TODO: for now we just use the first fitting IsoMdocZk class and run with it. In future revision, we might have
 //  several candidates, and some might even fail while other wouldn't. so it could be wise to try the other ones,
 //  if one fails for unexpected reasons
-object IsoMdocProofRegistry {
+object IsoMdocZkProofRegistry {
     private val factories = mutableListOf<IsoMdocZkProofFactory>()
 
     init {

@@ -66,7 +66,7 @@ import at.asitplus.wallet.lib.cbor.VerifyCoseSignatureWithKeyFun
 import at.asitplus.wallet.lib.data.VerifiablePresentationJws
 import at.asitplus.wallet.lib.data.toBase64UrlJsonString
 import at.asitplus.wallet.lib.data.vckJsonSerializer
-import at.asitplus.wallet.lib.isoMdocZk.IsoMdocProofRegistry
+import at.asitplus.wallet.lib.isoMdocZk.IsoMdocZkProofRegistry
 import at.asitplus.wallet.lib.isoMdocZk.IsoMdocZkProof
 import at.asitplus.wallet.lib.jws.DecryptJwe
 import at.asitplus.wallet.lib.jws.DecryptJweFun
@@ -559,31 +559,24 @@ class OpenId4VpVerifier(
                 val credentialQuery = credentialQueryMap[credentialQueryId]
                     ?: throw IllegalArgumentException("Unknown credential query identifier.")
 
-                val allowedZkSystemTypes = (credentialQuery.meta as? DCQLIsoMdocCredentialMetadataAndValidityConstraints)?.zkSystemType
+                val allowedZkSystemTypes = (credentialQuery.meta as?
+                        DCQLIsoMdocCredentialMetadataAndValidityConstraints)?.zkSystemType
 
-                // This is very specific to the dcql flow, presentation exchange flow might look very different!
-                // Other flows could for example use a map of documenttypes to allowed zksystem type and this
-                // callback would have to evaluate them
-                val validateZkSystemType: ((ZkDocument) -> ZkSystemSpec?)? =
-                    if (allowedZkSystemTypes != null) {
-                        // Define the function
-                        { zkDoc: ZkDocument ->
-                            // Extract the circuit ID from the document
-                            val usedCircuitId = zkDoc.zkDocumentDataBytes.value.zkSystemId
+                // Validation function is specific to DCQL flow. Other flows require different validation functions
+                val validateZkSystemType: (ZkDocument) -> ZkSystemSpec? = { zkDocument ->
+                    val usedCircuitId = zkDocument.zkDocumentDataBytes.value.zkSystemId
 
-                            allowedZkSystemTypes.firstOrNull {
-                                it.id == usedCircuitId
-                            }?.let {
-                                ZkSystemSpec(
-                                    zkSystemId = it.id,
-                                    system = it.system,
-                                    params = mapOf(
-                                        DCQLZkSystemType.PROP_CIRCUIT_HASH to it.circuitHash,
-                                    )
-                                )
-                            }
+                    allowedZkSystemTypes
+                        ?.firstOrNull { it.id == usedCircuitId }
+                        ?.let { zkType ->
+                            ZkSystemSpec(
+                                zkSystemId = zkType.id,
+                                system = zkType.system,
+                                params = mapOf(DCQLZkSystemType.PROP_CIRCUIT_HASH to zkType.circuitHash)
+                            )
                         }
-                    } else null
+                }
+
 
                 catchingUnwrapped {
                     val result = verifyPresentationResult(
@@ -645,7 +638,7 @@ class OpenId4VpVerifier(
         clientId: String?,
         responseUrl: String?,
         transactionData: List<TransactionDataBase64Url>?,
-        validateZkSystemType: ((ZkDocument) -> ZkSystemSpec?)? = null,
+        validateZkSystemType: (ZkDocument) -> ZkSystemSpec? = { null },
     ) = when (claimFormat) {
         ClaimFormat.JWT_SD, ClaimFormat.SD_JWT -> verifier.verifyPresentationSdJwt(
             input = SdJwtSigned.parseCatching(relatedPresentation.jsonPrimitive.content).getOrElse {
@@ -681,7 +674,7 @@ class OpenId4VpVerifier(
             verifier.verifyPresentationIsoMdoc(
                 input = deviceResponse,
                 verifyPlainDocument = verifyPlainDocument(mdocGeneratedNonce, clientId, responseUrl, expectedNonce),
-                verifyZkDocument = if (validateZkSystemType == null) null else verifyZkDocument(
+                verifyZkDocument = verifyZkDocument(
                     mdocGeneratedNonce = mdocGeneratedNonce,
                     clientId = clientId,
                     responseUrl = responseUrl,
@@ -709,7 +702,7 @@ class OpenId4VpVerifier(
                 Napier.d("zkDocument not of any allowed zkSystemType")
                 false
             } else {
-                val proof = IsoMdocProofRegistry.load(
+                val proof = IsoMdocZkProofRegistry.load(
                     zkDocument = zkDocument,
                     sessionTranscript = calcSessionTranscriptOpenId4VpFinal(
                         clientId = clientId,

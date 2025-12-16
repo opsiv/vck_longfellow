@@ -149,7 +149,9 @@ sealed class CreatePresentationResult {
          * JWE, see ISO/IEC 18013-7:2024 B.4.3.3.2.
          */
         val mdocGeneratedNonce: String?,
-    ) : CreatePresentationResult()
+    ) : CreatePresentationResult() {
+        companion object
+    }
 }
 
 @Serializable

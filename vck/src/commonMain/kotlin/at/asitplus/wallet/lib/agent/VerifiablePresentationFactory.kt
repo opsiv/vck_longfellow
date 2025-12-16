@@ -42,7 +42,7 @@ class VerifiablePresentationFactory(
         request: PresentationRequestParameters,
         credentialAndDisclosedAttributes: Map<SubjectCredentialStore.StoreEntry.Iso, Collection<NormalizedJsonPath>>,
         ): KmmResult<CreatePresentationResult> = catching {
-        IsoPresentation.createPresentation(
+        CreatePresentationResult.DeviceResponse.create(
             request = request,
             credentialsAndMeta = credentialAndDisclosedAttributes.mapValues { IsoPresentationMeta(it.value) },
         )
@@ -66,7 +66,7 @@ class VerifiablePresentationFactory(
             )
 
             is SubjectCredentialStore.StoreEntry.Iso -> {
-                IsoPresentation.createPresentation(
+                CreatePresentationResult.DeviceResponse.create(
                     request = request,
                     credentialsAndMeta = mapOf(credential to IsoPresentationMeta(disclosedAttributes)),
                 )
@@ -113,7 +113,7 @@ class VerifiablePresentationFactory(
                 val credentialAndMeta = mapOf(
                     credential to IsoPresentationMeta(requestedClaims, spec),
                 )
-                IsoPresentation.createPresentation(
+                CreatePresentationResult.DeviceResponse.create(
                     request = request,
                     credentialsAndMeta = credentialAndMeta,
                 )

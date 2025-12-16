@@ -1,10 +1,14 @@
 package at.asitplus.wallet.lib.isoMdocZk
 
 import at.asitplus.iso.DeviceResponse
+import at.asitplus.iso.DeviceSignedItemList
+import at.asitplus.iso.Document
+import at.asitplus.iso.IssuerSignedList
 import at.asitplus.iso.SessionTranscript
 import at.asitplus.iso.ValidityInfo
 import at.asitplus.iso.ZkDocument
 import at.asitplus.iso.ZkDocumentData
+import at.asitplus.iso.ZkSignedItem
 import at.asitplus.iso.ZkSignedList
 import at.asitplus.iso.ZkSystemSpec
 import at.asitplus.jsonpath.core.NormalizedJsonPath
@@ -13,13 +17,14 @@ import at.asitplus.signum.indispensable.CryptoPublicKey
 import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
 import at.asitplus.signum.indispensable.cosef.io.coseCompliantSerializer
 import at.asitplus.signum.indispensable.pki.X509Certificate
-import at.asitplus.wallet.lib.agent.IsoPresentation
 import at.asitplus.wallet.lib.agent.PresentationRequestParameters
 import at.asitplus.wallet.lib.agent.SubjectCredentialStore
-import at.asitplus.wallet.lib.agent.toDisclosed
+import at.asitplus.wallet.lib.agent.build
 import at.asitplus.wallet.lib.longfellow.Circuit
 import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeLibrary
 import kotlinx.serialization.encodeToByteArray
+import kotlin.collections.component1
+import kotlin.collections.component2
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -85,7 +90,7 @@ class IsoMdocLongfellowZKProof (
 
             require(request.sessionTranscript != null) {"No or too many documents found!"}
 
-            val document = IsoPresentation.buildPlainDocument(
+            val document = Document.build(
                 request = request,
                 credential = credential,
                 requestedClaims = requestedClaims,
@@ -188,4 +193,32 @@ private fun isIso8601Compliant(validityInfo: ValidityInfo?): Boolean {
                 it.validUntil.nanosecondsOfSecond == 0 &&
                 it.signed.nanosecondsOfSecond == 0
     } ?: false
+}
+
+@JvmName("toIssuerDisclosed")
+private fun Map<String, IssuerSignedList>?.toDisclosed(): Map<String, ZkSignedList>? {
+    return this?.mapValues { (_, issuerList) ->
+        ZkSignedList(
+            entries = issuerList.entries.map { entry ->
+                ZkSignedItem(
+                    elementIdentifier = entry.value.elementIdentifier,
+                    elementValue = entry.value.elementValue
+                )
+            }
+        )
+    }
+}
+
+@JvmName("toDeviceDisclosed")
+private fun Map<String, DeviceSignedItemList>?.toDisclosed(): Map<String, ZkSignedList>? {
+    return this?.mapValues { (_, deviceSignedList) ->
+        ZkSignedList(
+            entries = deviceSignedList.entries.map { entry ->
+                ZkSignedItem(
+                    elementIdentifier = entry.key,
+                    elementValue = entry.value
+                )
+            }
+        )
+    }
 }
