@@ -1,8 +1,7 @@
-package at.asitplus.wallet.lib.isoMdocZk
+package at.asitplus.wallet.lib.agent
 
 import at.asitplus.iso.ZkSystemSpec
 
-// TODO: think about moving this into another package, it feels out of place here
 data class SystemSpec(
     val allowedZkSpec: List<ZkSystemSpec>,
     val forceZk: Boolean = false

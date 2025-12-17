@@ -141,7 +141,7 @@ internal class PresentationFactory(
 
 
     /**
-     * Performs calculation of the [SessionTranscript] and [DeviceAuthentication], according to OpenID4VP 1.0
+     * Performs calculation of the [DeviceAuthentication], according to OpenID4VP 1.0
      */
     @Throws(PresentationException::class, CancellationException::class)
     private suspend fun calcDeviceSignature(
