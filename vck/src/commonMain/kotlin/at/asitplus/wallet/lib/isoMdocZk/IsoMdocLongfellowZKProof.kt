@@ -1,5 +1,6 @@
 package at.asitplus.wallet.lib.isoMdocZk
 
+import at.asitplus.KmmResult
 import at.asitplus.iso.DeviceResponse
 import at.asitplus.iso.DeviceSignedItemList
 import at.asitplus.iso.Document
@@ -28,7 +29,7 @@ import kotlin.collections.component2
 import kotlin.time.Clock
 import kotlin.time.Instant
 
-class IsoMdocLongfellowZKProof (
+internal class IsoMdocLongfellowZKProof private constructor(
     override val zkSystemSpec: ZkSystemSpec,
     zkDocument: ZkDocument,
     val sessionTranscript: SessionTranscript,
@@ -68,16 +69,17 @@ class IsoMdocLongfellowZKProof (
         ).getOrThrow()
     }
 
-    companion object Factory : IsoMdocZkProofFactory {
-        private const val circuitHashIdentifier = "circuit_hash"
-        const val systemIdentifier = "longfellow-libzk-v1"
+    internal companion object Factory : IsoMdocZkProofFactory {
+        private const val CIRCUIT_HASH_IDENTIFIER = "circuit_hash"
+        val systemIdentifier = "longfellow-libzk-v1"
+        override val factoryName = "LongfellowZk"
 
         override fun supports(zkSystemSpec: ZkSystemSpec): Boolean {
             // TODO: Consider more validation eg. with
             //  attribute count and circuit validation with
             //  val attributeCount = namespaces.values.sumOf { it.entries.size }
             return zkSystemSpec.system == systemIdentifier &&
-                    zkSystemSpec.params.containsKey(circuitHashIdentifier)
+                    zkSystemSpec.params.containsKey(CIRCUIT_HASH_IDENTIFIER)
         }
 
         override suspend fun generate(
@@ -86,10 +88,7 @@ class IsoMdocLongfellowZKProof (
             requestedClaims: Collection<NormalizedJsonPath>,
             zkSystemSpec: ZkSystemSpec
         ): IsoMdocZkProof {
-            val sessionTranscript = request.sessionTranscript
-
-            require(request.sessionTranscript != null) {"No or too many documents found!"}
-
+            val sessionTranscript = requireNotNull(request.sessionTranscript){"No or too many documents found!"}
             val document = Document.build(
                 request = request,
                 credential = credential,
@@ -146,6 +145,11 @@ class IsoMdocLongfellowZKProof (
 
         }
 
+        override fun initialize(): KmmResult<Unit> {
+            // TODO: Load native libraries and all needed dependencies. Return failure if non successful
+            return KmmResult.success(Unit)
+        }
+
         override fun load(
             zkDocument: ZkDocument,
             sessionTranscript: SessionTranscript,
@@ -166,7 +170,7 @@ class IsoMdocLongfellowZKProof (
 
         private fun buildCircuit(zkSystemSpec: ZkSystemSpec) = Circuit(
             systemName = systemIdentifier,
-            circuitId = zkSystemSpec.params.getOrElse(circuitHashIdentifier) {
+            circuitId = zkSystemSpec.params.getOrElse(CIRCUIT_HASH_IDENTIFIER) {
                 throw IllegalArgumentException("No circuit hash provided")
             }
         )

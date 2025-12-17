@@ -1,18 +1,13 @@
 package at.asitplus.wallet.lib.isoMdocZk
 
-import at.asitplus.iso.DeviceSignedItemList
-import at.asitplus.iso.IssuerSignedList
 import at.asitplus.iso.ZkDocument
 import at.asitplus.iso.ZkDocumentData
-import at.asitplus.iso.ZkSignedItem
 import at.asitplus.iso.ZkSignedList
 import at.asitplus.iso.ZkSystemSpec
 import at.asitplus.signum.indispensable.cosef.io.ByteStringWrapper
-import kotlin.collections.component1
-import kotlin.collections.component2
 import kotlin.time.Instant
 
-abstract class IsoMdocZkProof {
+abstract class IsoMdocZkProof protected constructor() {
     abstract val zkSystemSpec: ZkSystemSpec
     abstract val issuerSignedNamespaces: Map<String, ZkSignedList>
     abstract val deviceSignedNamespaces: Map<String, ZkSignedList>
@@ -20,6 +15,7 @@ abstract class IsoMdocZkProof {
     abstract val docType: String
     abstract val msoX5Chain: List<ByteArray>?
     abstract val timestamp: Instant
+
 
     abstract fun verify(): Boolean
 

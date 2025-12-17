@@ -1,25 +1,46 @@
 package at.asitplus.wallet.lib.isoMdocZk
 
+import at.asitplus.KmmResult
 import at.asitplus.iso.SessionTranscript
 import at.asitplus.iso.ZkDocument
 import at.asitplus.iso.ZkSystemSpec
 import at.asitplus.wallet.lib.agent.IsoPresentationMeta
 import at.asitplus.wallet.lib.agent.PresentationRequestParameters
 import at.asitplus.wallet.lib.agent.SubjectCredentialStore
+import io.github.aakira.napier.Napier
 
-// TODO: for now we just use the first fitting IsoMdocZk class and run with it. In future revision, we might have
-//  several candidates, and some might even fail while other wouldn't. so it could be wise to try the other ones,
-//  if one fails for unexpected reasons
+
 object IsoMdocZkProofRegistry {
-    private val factories = mutableListOf<IsoMdocZkProofFactory>()
+    // TODO: remove check with IsoMdocZkProofProvider initialized
+
+    private val factories = LinkedHashSet<IsoMdocZkProofFactory>()
 
     init {
-        // TODO: rethink autoregistering
-        register(IsoMdocLongfellowZKProof.Factory)
+        // TODO: rethink auto registration
+        val autoRegisteredProofSystems = setOf<IsoMdocZkProofFactory>(
+            IsoMdocLongfellowZKProof.Factory
+        )
+        autoRegisteredProofSystems.forEach { proofSystem ->
+            register(proofSystem).onFailure {
+                Napier.d("Couldn't register factory ${proofSystem.factoryName}, due to initialization error: ${it.message}")
+            }
+        }
     }
 
-    fun register(factory: IsoMdocZkProofFactory) {
-        factories += factory
+    fun register(factory: IsoMdocZkProofFactory): KmmResult<IsoMdocZkProofFactory> {
+        if (!factories.contains(factory)) {
+            val initResult = factory.initialize()
+            return initResult.fold(
+                onSuccess = {
+                    factories.add(factory)
+                    KmmResult.success(factory)
+                },
+                onFailure = { KmmResult.failure(it) }
+            )
+        } else {
+            // TODO: adjust exception type
+            return KmmResult.failure(IllegalStateException("Factory already registered!"))
+        }
     }
 
 
