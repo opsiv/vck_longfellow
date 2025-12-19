@@ -7,9 +7,13 @@ import at.asitplus.iso.ZkSystemSpec
 import at.asitplus.jsonpath.core.NormalizedJsonPath
 import at.asitplus.wallet.lib.agent.PresentationRequestParameters
 import at.asitplus.wallet.lib.agent.SubjectCredentialStore
+import kotlinx.serialization.KSerializer
 
 interface IsoMdocZkProofFactory {
-    val factoryName: String
+    val systemName: String
+
+
+    val paramSerializers: Map<String, KSerializer<*>>
 
     fun supports(zkSystemSpec: ZkSystemSpec): Boolean
 

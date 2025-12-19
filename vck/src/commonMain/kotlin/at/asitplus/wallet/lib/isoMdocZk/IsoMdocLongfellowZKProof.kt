@@ -23,6 +23,8 @@ import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 import at.asitplus.wallet.lib.agent.build
 import at.asitplus.wallet.lib.longfellow.Circuit
 import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeLibrary
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.encodeToByteArray
 import kotlin.collections.component1
 import kotlin.collections.component2
@@ -71,14 +73,26 @@ internal class IsoMdocLongfellowZKProof private constructor(
 
     internal companion object Factory : IsoMdocZkProofFactory {
         private const val CIRCUIT_HASH_IDENTIFIER = "circuit_hash"
-        val systemIdentifier = "longfellow-libzk-v1"
-        override val factoryName = "LongfellowZk"
+        private const val NUM_ATTRIBUTES_IDENTIFIER = "num_attributes"
+        private const val VERSION_IDENTIFIER = "version"
+        private const val BLOCK_ENC_HASH_IDENTIFIER = "block_enc_hash"
+        private const val BLOCK_ENC_SIG_IDENTIFIER = "block_enc_signature"
+
+        override val systemName = "longfellow-libzk-v1"
+
+        override val paramSerializers = mapOf(
+            CIRCUIT_HASH_IDENTIFIER to String.serializer(),
+            NUM_ATTRIBUTES_IDENTIFIER to Int.serializer(),
+            VERSION_IDENTIFIER to Int.serializer(),
+            BLOCK_ENC_HASH_IDENTIFIER to Int.serializer(),
+            BLOCK_ENC_SIG_IDENTIFIER to Int.serializer(),
+        )
 
         override fun supports(zkSystemSpec: ZkSystemSpec): Boolean {
             // TODO: Consider more validation eg. with
             //  attribute count and circuit validation with
             //  val attributeCount = namespaces.values.sumOf { it.entries.size }
-            return zkSystemSpec.system == systemIdentifier &&
+            return zkSystemSpec.system == systemName &&
                     zkSystemSpec.params.containsKey(CIRCUIT_HASH_IDENTIFIER)
         }
 
@@ -169,10 +183,10 @@ internal class IsoMdocLongfellowZKProof private constructor(
         }
 
         private fun buildCircuit(zkSystemSpec: ZkSystemSpec) = Circuit(
-            systemName = systemIdentifier,
-            circuitId = zkSystemSpec.params.getOrElse(CIRCUIT_HASH_IDENTIFIER) {
-                throw IllegalArgumentException("No circuit hash provided")
-            }
+            systemName = systemName,
+            circuitId = zkSystemSpec.params[CIRCUIT_HASH_IDENTIFIER] as? String
+                ?: throw IllegalArgumentException("No circuit hash provided")
+
         )
 
         // TODO: consider checking the whole list

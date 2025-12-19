@@ -60,7 +60,7 @@ private suspend fun createZkDocuments(
 ): Map<SubjectCredentialStore.StoreEntry.Iso, ZkDocument> {
     require(request.sessionTranscript != null) {"No or too many documents found!"}
     val zkCompatibleCredentialsAndMeta = credentialsAndMeta
-        .filter { (_, meta) -> !(meta.spec.allowedZkSpec.isEmpty() && !meta.spec.forceZk) }
+        .filter { (_, meta) -> !(meta.spec.systemSpecs.isEmpty() && !meta.spec.zkRequired) }
 
     return zkCompatibleCredentialsAndMeta.mapValues {
         // TODO: allow soft fail in order to fall back to PlainDocuments
@@ -72,7 +72,7 @@ private suspend fun createPlainDocuments(
     request: PresentationRequestParameters,
     credentialsAndMeta: Map<SubjectCredentialStore.StoreEntry.Iso, IsoPresentationMeta>,
 ): Map<SubjectCredentialStore.StoreEntry.Iso, Document> = credentialsAndMeta
-    .filter { (_, meta) -> !meta.spec.forceZk }
+    .filter { (_, meta) -> !meta.spec.zkRequired }
     .mapValues { it.value.claims }
     .mapValues { (credential, requestedClaims) ->
         Document.build(request, credential, requestedClaims)

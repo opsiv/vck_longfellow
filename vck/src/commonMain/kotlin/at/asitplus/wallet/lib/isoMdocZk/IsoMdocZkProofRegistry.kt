@@ -3,6 +3,7 @@ package at.asitplus.wallet.lib.isoMdocZk
 import at.asitplus.KmmResult
 import at.asitplus.iso.SessionTranscript
 import at.asitplus.iso.ZkDocument
+import at.asitplus.iso.ZkSystemParamRegistry
 import at.asitplus.iso.ZkSystemSpec
 import at.asitplus.wallet.lib.agent.IsoPresentationMeta
 import at.asitplus.wallet.lib.agent.PresentationRequestParameters
@@ -22,7 +23,7 @@ object IsoMdocZkProofRegistry {
         )
         autoRegisteredProofSystems.forEach { proofSystem ->
             register(proofSystem).onFailure {
-                Napier.d("Couldn't register factory ${proofSystem.factoryName}, due to initialization error: ${it.message}")
+                Napier.d("Couldn't register factory ${proofSystem.systemName}, due to initialization error: ${it.message}")
             }
         }
     }
@@ -33,6 +34,7 @@ object IsoMdocZkProofRegistry {
             return initResult.fold(
                 onSuccess = {
                     factories.add(factory)
+                    ZkSystemParamRegistry.register(factory.systemName, factory.paramSerializers)
                     KmmResult.success(factory)
                 },
                 onFailure = { KmmResult.failure(it) }
@@ -59,7 +61,7 @@ object IsoMdocZkProofRegistry {
         credentialAndMeta: Map.Entry<SubjectCredentialStore.StoreEntry.Iso, IsoPresentationMeta>): IsoMdocZkProof {
         val credential = credentialAndMeta.key
         val meta = credentialAndMeta.value
-        val (isoMdocZkProofFactory, zkSystemSpec) = findFactory(meta.spec.allowedZkSpec)
+        val (isoMdocZkProofFactory, zkSystemSpec) = findFactory(meta.spec.systemSpecs)
         return isoMdocZkProofFactory.generate(request, credential, meta.claims, zkSystemSpec)
     }
 
