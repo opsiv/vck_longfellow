@@ -76,7 +76,7 @@ internal class IsoMdocLongfellowZKProof private constructor(
         private const val NUM_ATTRIBUTES_IDENTIFIER = "num_attributes"
         private const val VERSION_IDENTIFIER = "version"
         private const val BLOCK_ENC_HASH_IDENTIFIER = "block_enc_hash"
-        private const val BLOCK_ENC_SIG_IDENTIFIER = "block_enc_signature"
+        private const val BLOCK_ENC_SIG_IDENTIFIER = "block_enc_sig"
 
         override val systemName = "longfellow-libzk-v1"
 
