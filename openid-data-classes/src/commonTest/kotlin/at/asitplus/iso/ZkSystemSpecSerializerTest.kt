@@ -249,6 +249,30 @@ val ZkSystemParamRegistryTest by testSuite {
 
         ZkSystemParamRegistry.lookupSerializer(system, "param1") shouldBe String.serializer()
     }
+
+    "register same system with compatible serializers is idempotent" {
+        val system = "idempotent-test-system"
+
+        ZkSystemParamRegistry.register(
+            system,
+            mapOf(
+                "param1" to String.serializer(),
+                "param2" to Int.serializer(),
+            )
+        )
+        // Should not throw - same registration
+        ZkSystemParamRegistry.register(
+            system,
+            mapOf(
+                "param1" to String.serializer(),
+                "param3" to Long.serializer(),
+            )
+        )
+
+        ZkSystemParamRegistry.lookupSerializer(system, "param1") shouldBe String.serializer()
+        ZkSystemParamRegistry.lookupSerializer(system, "param2") shouldBe Int.serializer()
+        ZkSystemParamRegistry.lookupSerializer(system, "param3") shouldBe Long.serializer()
+    }
 }
 
 inline fun <reified T> ZkSystemSpec.getParam(key: String): T? = params[key] as? T
