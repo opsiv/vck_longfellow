@@ -251,7 +251,7 @@ val ZkSystemParamRegistryTest by testSuite {
     }
 }
 
-inline fun <reified T> ZkSystemSpec.getParam(key: String): T? = params[key] as T?
+inline fun <reified T> ZkSystemSpec.getParam(key: String): T? = params[key] as? T
 
 inline fun<reified T> ZkSystemSpec.requireParam(key: String): T = getParam<T>(key)
     ?: error("Required param '$key' not found or has wrong type in ZkSystemSpec")
