@@ -1,6 +1,5 @@
 package at.asitplus.iso
 
-import at.asitplus.catching
 import at.asitplus.catchingUnwrapped
 import io.github.aakira.napier.Napier
 import kotlinx.datetime.LocalDate
@@ -11,18 +10,13 @@ import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
-import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
 import kotlinx.serialization.descriptors.buildSerialDescriptor
-import kotlinx.serialization.encoding.CompositeDecoder
-import kotlinx.serialization.encoding.CompositeEncoder
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.encoding.decodeStructure
 import kotlinx.serialization.encoding.encodeStructure
-import kotlin.collections.component1
-import kotlin.collections.component2
 import kotlin.time.Instant
 
 object ZkSystemSpecSerializer : KSerializer<ZkSystemSpec> {
@@ -110,7 +104,7 @@ internal class ZkSystemParamsMapSerializer(
         }
 
         val valueSerializer = object : KSerializer<Any> {
-            override val descriptor = PrimitiveSerialDescriptor("ParamKey", PrimitiveKind.STRING)
+            override val descriptor = PrimitiveSerialDescriptor("ValueKey", PrimitiveKind.STRING)
 
             override fun serialize(encoder: Encoder, value: Any) {
                 ZkSystemParamRegistry.lookupSerializer(systemName, currentKey)?.let { serializer ->
@@ -120,11 +114,11 @@ internal class ZkSystemParamsMapSerializer(
                     }
                     return
                 }
-                Napier.d("param '$currentKey' not registered', using defaults")
+                Napier.d("param '$currentKey' not registered, using defaults")
                 when (value) {
                     is String -> encoder.encodeString(value)
-                    is Int ->  encoder.encodeInt(value)
-                    is Long ->  encoder.encodeLong(value)
+                    is Int -> encoder.encodeInt(value)
+                    is Long -> encoder.encodeLong(value)
                     is LocalDate -> encoder.encodeSerializableValue(LocalDate.serializer(), value)
                     is Instant -> encoder.encodeSerializableValue(InstantStringSerializer, value)
                     is Boolean -> encoder.encodeBoolean(value)
@@ -138,11 +132,14 @@ internal class ZkSystemParamsMapSerializer(
             override fun deserialize(decoder: Decoder): Any {
                 ZkSystemParamRegistry.lookupSerializer(systemName, currentKey)?.let { serializer ->
                     @Suppress("UNCHECKED_CAST")
-                    return decoder.decodeSerializableValue(serializer as KSerializer<Any>)
+                    return decoder.decodeSerializableValue(serializer)
+                        ?: error("Null value for param '$currentKey' is not supported")
                 }
-                // TODO more fallbacks?
-                Napier.d("Using fallbacks to decode...") // TODO: better error msg
+                Napier.d("param '$currentKey' not registered, using fallbacks to")
                 catchingUnwrapped { return decoder.decodeString() }
+                catchingUnwrapped { return decoder.decodeLong() }
+                catchingUnwrapped { return decoder.decodeDouble() }
+                catchingUnwrapped { return decoder.decodeBoolean() }
 
                 error("Could not decode param '$currentKey' for system '$systemName'")
             }
