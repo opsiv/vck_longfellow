@@ -271,20 +271,7 @@ class HolderAgent(
     }
 
     private fun List<DCQLZkSystemType>?.toZkRequest(): ZkRequest {
-        val zkSystemSpecs = this?.map { dcqlZkSystemType ->
-            ZkSystemSpec(
-                system = dcqlZkSystemType.system,
-                zkSystemId = dcqlZkSystemType.id,
-                params = buildMap<String, Any> {
-                    put(DCQLZkSystemType.PROP_CIRCUIT_HASH, dcqlZkSystemType.circuitHash)
-                    put(DCQLZkSystemType.PROP_NUM_ATTRIBUTES, dcqlZkSystemType.numAttributes)
-                    put(DCQLZkSystemType.PROP_VERSION, dcqlZkSystemType.version)
-
-                    dcqlZkSystemType.blockEncHash?.let{ put(DCQLZkSystemType.PROP_BLOCK_ENC_HASH, it)}
-                    dcqlZkSystemType.blockEncSig?.let{ put(DCQLZkSystemType.PROP_BLOCK_ENC_SIG, it)}
-                }
-            )
-        }
+        val zkSystemSpecs = this?.map { it.toIsoZkSystemSpec() }
 
         return ZkRequest(
             systemSpecs = zkSystemSpecs ?: emptyList(),
