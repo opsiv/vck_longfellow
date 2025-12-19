@@ -23,7 +23,6 @@ import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 import at.asitplus.wallet.lib.agent.build
 import at.asitplus.wallet.lib.longfellow.Circuit
 import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeLibrary
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.encodeToByteArray
 import kotlin.collections.component1

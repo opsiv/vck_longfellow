@@ -250,3 +250,8 @@ val ZkSystemParamRegistryTest by testSuite {
         ZkSystemParamRegistry.lookupSerializer(system, "param1") shouldBe String.serializer()
     }
 }
+
+inline fun <reified T> ZkSystemSpec.getParam(key: String): T? = params[key] as T?
+
+inline fun<reified T> ZkSystemSpec.requireParam(key: String): T = getParam<T>(key)
+    ?: error("Required param '$key' not found or has wrong type in ZkSystemSpec")

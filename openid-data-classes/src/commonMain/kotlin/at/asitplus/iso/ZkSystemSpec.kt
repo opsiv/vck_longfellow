@@ -12,6 +12,8 @@ data class ZkSystemSpec (
     @SerialName(PROP_PARAMS)
     val params: Map<String, Any>
 ) {
+
+
     companion object {
         const val PROP_ZK_SYSTEM_ID = "zkSystemId"
         const val PROP_SYSTEM = "system"

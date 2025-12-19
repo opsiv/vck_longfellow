@@ -108,10 +108,8 @@ internal class ZkSystemParamsMapSerializer(
 
             override fun serialize(encoder: Encoder, value: Any) {
                 ZkSystemParamRegistry.lookupSerializer(systemName, currentKey)?.let { serializer ->
-                    encoder.encodeStructure(descriptor) {
-                        @Suppress("UNCHECKED_CAST")
-                        encoder.encodeSerializableValue(serializer as KSerializer<Any>, value)
-                    }
+                    @Suppress("UNCHECKED_CAST")
+                    encoder.encodeSerializableValue(serializer as KSerializer<Any>, value)
                     return
                 }
                 Napier.d("param '$currentKey' not registered, using defaults")
