@@ -23,6 +23,7 @@ import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 import at.asitplus.wallet.lib.agent.build
 import at.asitplus.wallet.lib.longfellow.Circuit
 import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeLibrary
+import at.asitplus.wallet.lib.longfellow.longfellowzk.RequestedItem
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.encodeToByteArray
 import kotlin.collections.component1
@@ -64,8 +65,11 @@ internal class IsoMdocLongfellowZKProof private constructor(
 
 
     override fun verify(): Boolean {
+        val requestedItems = issuerSignedNamespaces.toRequestedItems()
+        if (!requestedItems.all { it.isValid() }) return false
+
         return NativeLibrary.verifyProof(
-            circuit.raw, issuerKey, transcriptBytes, issuerSignedNamespaces,
+            circuit.raw, issuerKey, transcriptBytes, requestedItems,
             timestamp, rawProof, docType, circuit.handle
         ).getOrThrow()
     }
@@ -122,7 +126,12 @@ internal class IsoMdocLongfellowZKProof private constructor(
             val msoX5Chain = document.issuerSigned.issuerAuth.unprotectedHeader?.certificateChain
             val issuerKey = extractIssuerKey(msoX5Chain)
 
-            val issuerSignedNamespaces = document.issuerSigned.namespaces.toDisclosed() ?: emptyMap()
+            val zkSignedItems = document.issuerSigned.namespaces.toDisclosed() ?: emptyMap()
+            val requestedItems = zkSignedItems.toRequestedItems()
+            require(requestedItems.all { it.isValid() }) {
+                "Prover can't compute with requested item!"
+            }
+
             val docType = document.docType
             val deviceSignedNamespaces = document.deviceSigned.namespaces.value.entries.toDisclosed() ?: emptyMap()
 
@@ -132,7 +141,7 @@ internal class IsoMdocLongfellowZKProof private constructor(
 
             val rawProof = NativeLibrary.generateProof(
                 circuit.raw, deviceResponseBytes,
-                issuerKey, transcriptBytes, now, issuerSignedNamespaces,
+                issuerKey, transcriptBytes, now, requestedItems,
                 circuit.handle
             ).getOrThrow()
 
@@ -142,7 +151,7 @@ internal class IsoMdocLongfellowZKProof private constructor(
                         docType = docType,
                         zkSystemId = circuit.circuitId,
                         timestamp = now,
-                        issuerSigned = issuerSignedNamespaces,
+                        issuerSigned = zkSignedItems,
                         deviceSigned = deviceSignedNamespaces,
                         certificateChain = msoX5Chain
                     )
@@ -239,3 +248,10 @@ private fun Map<String, DeviceSignedItemList>?.toDisclosed(): Map<String, ZkSign
         )
     }
 }
+
+private fun Map<String, ZkSignedList>.toRequestedItems(): List<RequestedItem> =
+    flatMap { (namespace, itemList) ->
+        itemList.entries.map { item ->
+            RequestedItem(namespace, item.elementIdentifier, item.elementValue)
+        }
+    }

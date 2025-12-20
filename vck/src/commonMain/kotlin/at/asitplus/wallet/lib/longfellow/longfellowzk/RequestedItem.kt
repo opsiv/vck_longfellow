@@ -1,51 +1,47 @@
 package at.asitplus.wallet.lib.longfellow.longfellowzk
 
-import kotlinx.serialization.Serializable
+import at.asitplus.iso.ZkSignedItemSerializer
+import io.github.aakira.napier.Napier
 
-@Serializable
-data class RequestedItem(
-    val nameSpaceId: String,
-    val id: String,
-    val cborValue: ByteArray,
+// TODO: Convert every Map<String, ZkSignedList> deterministically into an ordered list of RequestedItem in common code.
+//  Then use the RequestedItems List to convert into the native types, i.e. define an expect function that does the
+//  conversion to a typealias
+class RequestedItem(
+    namespace: String,
+    elementIdentifier: String,
+    elementValue: Any
 ) {
+    val namespaceBytes: ByteArray = namespace.toByteArray()
+    val elementIdentifierBytes: ByteArray = elementIdentifier.toByteArray()
+    val elementValueBytes: ByteArray = ZkSignedItemSerializer.serializeElementValue(
+        namespace,
+        elementValue,
+        elementIdentifier
+    )
 
+    fun isValid(): Boolean {
+        return namespaceBytes.size <= NAMESPACE_SIZE
+                && elementIdentifierBytes.size <= ELEMENT_IDENTIFIER_SIZE
+                && elementValueBytes.size <= CBOR_ELEMENT_VALUE_SIZE
+    }
 
     init {
-        require(nameSpaceId.length <= NAME_SPACE_ID_SIZE) {
-            "nameSpaceId too long"
+        if (namespaceBytes.size > NAMESPACE_SIZE) {
+            Napier.d("Namespace '$namespace' length ${namespaceBytes.size} exceeds max $NAMESPACE_SIZE")
         }
-        require(id.length <= ID_SIZE) {
-            "id too long"
+        if (elementIdentifierBytes.size > ELEMENT_IDENTIFIER_SIZE) {
+            Napier.d("Element identifier '$elementIdentifier' length ${elementIdentifierBytes.size} exceeds max $ELEMENT_IDENTIFIER_SIZE")
         }
-        require(cborValue.size <= CBOR_VALUE_SIZE) {
-            "cborValue too long"
+        if (elementValueBytes.size > CBOR_ELEMENT_VALUE_SIZE) {
+            Napier.d("CBOR value for '$elementIdentifier' length ${elementValueBytes.size} exceeds max $CBOR_ELEMENT_VALUE_SIZE")
         }
     }
+
 
     companion object {
-        const val NAME_SPACE_ID_SIZE = 64
-        const val ID_SIZE = 32
-        const val CBOR_VALUE_SIZE = 64
+        const val NAMESPACE_SIZE = 64
+        const val ELEMENT_IDENTIFIER_SIZE = 32
+        const val CBOR_ELEMENT_VALUE_SIZE = 64
 
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other == null || this::class != other::class) return false
-
-        other as RequestedItem
-
-        if (nameSpaceId != other.nameSpaceId) return false
-        if (id != other.id) return false
-        if (!cborValue.contentEquals(other.cborValue)) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = nameSpaceId.hashCode()
-        result = 31 * result + id.hashCode()
-        result = 31 * result + cborValue.contentHashCode()
-        return result
     }
 }

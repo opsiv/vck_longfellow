@@ -41,7 +41,7 @@ actual object NativeLibrary {
         attributes: List<ResponseItem>,
         zkSpec: ZkSpecHandle
     ): KmmResult<ByteArray> {
-        val requestedItems = attributes.map {it.toRequestedItem() }.toTypedArray()
+        val requestedItems = attributes.map { it.toRequestedItem() }.toTypedArray()
         transcript.usePinned { pinnedTranscript ->
             val transcriptPtr: CPointer<UByteVar> = pinnedTranscript.addressOf(0).reinterpret()
             circuit.usePinned { pinnedCircuit ->
