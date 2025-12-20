@@ -33,8 +33,8 @@ object IsoMdocZkProofRegistry {
             val initResult = factory.initialize()
             return initResult.fold(
                 onSuccess = {
-                    factories.add(factory)
                     ZkSystemParamRegistry.register(factory.systemName, factory.paramSerializers)
+                    factories.add(factory)
                     KmmResult.success(factory)
                 },
                 onFailure = { KmmResult.failure(it) }
