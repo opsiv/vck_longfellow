@@ -6,9 +6,8 @@ import com.sun.jna.Library
 import com.sun.jna.Pointer
 import com.sun.jna.ptr.LongByReference
 import com.sun.jna.ptr.PointerByReference
-import com.sun.jna.Native
 
-private interface IJnaLibrary : Library {
+internal interface IJnaLibrary : Library {
     fun generate_circuit(
         zk_spec_version: Pointer?,
         cb: PointerByReference,
@@ -39,23 +38,3 @@ private interface IJnaLibrary : Library {
 
     fun find_zk_spec(system_name: String, circuit_hash: String): Pointer?
 }
-
-private fun getJNaLibraryPath(): String {
-    val defaultName = "longfellow_mdoc"
-    val isAndroid = System.getProperty("java.vendor")?.lowercase()?.contains("android") == true
-    if (isAndroid) return defaultName
-
-    val os = System.getProperty("os.name").lowercase()
-    val arch = System.getProperty("os.arch").lowercase()
-    val suffix = when {
-        os.contains("mac") || os.contains("darwin") -> "dylib"
-        os.contains("win") -> "dll"
-        else -> "so"
-    }
-    return "/native/${os}-${arch}/${defaultName}.${suffix}"
-}
-
-object JnaLibrary : IJnaLibrary by Native.load(
-    getJNaLibraryPath(),
-    IJnaLibrary::class.java
-)

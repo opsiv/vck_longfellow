@@ -1,0 +1,131 @@
+package at.asitplus.wallet.lib.longfellow.longfellowzk.backend
+
+import at.asitplus.KmmResult
+import at.asitplus.wallet.lib.longfellow.longfellowzk.CircuitResultCode
+import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeResult
+import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeResultException
+import at.asitplus.wallet.lib.longfellow.longfellowzk.ProverResultCode
+import at.asitplus.wallet.lib.longfellow.longfellowzk.RequestedItem
+import at.asitplus.wallet.lib.longfellow.longfellowzk.VerifierResultCode
+import at.asitplus.wallet.lib.longfellow.longfellowzk.ZkSpecHandle
+import at.asitplus.wallet.lib.longfellow.longfellowzk.jna.IJnaLibrary
+import at.asitplus.wallet.lib.longfellow.longfellowzk.jna.toStructArray
+import at.asitplus.wallet.lib.longfellow.nativeBuffer.ScopedNativeBuffer
+import com.sun.jna.Native
+
+object JnaLongfellowZkBackend: LongfellowZkBackend {
+    private var initialized = false
+    private lateinit var delegate: IJnaLibrary
+
+    override fun findZkSpec(systemName: String, circuitHash: String): KmmResult<ZkSpecHandle> {
+        require(initialized) { "JNA library not initialized" }
+        return delegate.find_zk_spec(systemName, circuitHash)
+            .toKmmResultIfNotNull()
+    }
+    override fun generateCircuit(zkSpec: ZkSpecHandle): KmmResult<ByteArray> {
+        require(initialized) { "JNA library not initialized" }
+        val result = ScopedNativeBuffer { pointers ->
+            delegate.generate_circuit(
+                zkSpec,
+                pointers.byteArray,
+                pointers.byteArrayLength,
+            )
+        }
+        return NativeResult.fromInt<CircuitResultCode, ByteArray>(result)
+    }
+
+    override fun generateProof(
+        circuit: ByteArray,
+        deviceResponse: ByteArray,
+        publicKeyX: String,
+        publicKeyY: String,
+        transcript: ByteArray,
+        timestamp: String,
+        requestedItems: List<RequestedItem>,
+        zkSpec: ZkSpecHandle,
+    ): KmmResult<ByteArray> {
+        require(initialized) { "JNA library not initialized" }
+        val attributeStructs = requestedItems.toStructArray()
+        val result =  ScopedNativeBuffer { pointers ->
+            delegate.run_mdoc_prover(
+                bcp = circuit, bcsz = circuit.size.toLong(),
+                mdoc = deviceResponse, mdoc_len = deviceResponse.size.toLong(),
+                pkx = publicKeyX,
+                pky = publicKeyY,
+                transcript = transcript, tr_len = transcript.size.toLong(),
+                attrs = attributeStructs, attrs_len = attributeStructs.size.toLong(),
+                now = timestamp,
+                prf = pointers.byteArray, proof_len = pointers.byteArrayLength,
+                zkSpec = zkSpec
+            )
+        }
+        return NativeResult.fromInt<ProverResultCode, ByteArray>(result)
+    }
+
+    override fun verifyProof(
+        circuit: ByteArray,
+        publicKeyX: String,
+        publicKeyY: String,
+        transcript: ByteArray,
+        requestedItems: List<RequestedItem>,
+        timestamp: String,
+        proof: ByteArray,
+        docType: String,
+        zkSpec: ZkSpecHandle
+    ): KmmResult<Boolean> {
+        require(initialized) { "JNA library not initialized" }
+        val attributeStructs = requestedItems.toStructArray()
+        val intCode = delegate.run_mdoc_verifier(
+            bcp = circuit, bcsz = circuit.size.toLong(),
+            pkx = publicKeyX,
+            pky = publicKeyY,
+            transcript = transcript, tr_len = transcript.size.toLong(),
+            attrs = attributeStructs, attrs_len = attributeStructs.size.toLong(),
+            now = timestamp,
+            prf = proof, proof_len = proof.size.toLong(),
+            doc_type = docType,
+            zkSpec = zkSpec
+        )
+        val resultCode = VerifierResultCode.fromInt(intCode)
+        return when {
+            resultCode.isSuccess -> KmmResult(true)
+            resultCode in VerifierResultCode.invalidInputs -> KmmResult(false)
+            else ->  KmmResult.failure(NativeResultException(resultCode))
+        }
+    }
+
+    override fun initialize(): KmmResult<Unit> {
+        if (!initialized) {
+            try {
+                delegate = Native.load(
+                    /* name = */ getJNaLibraryPath(),
+                    /* interfaceClass = */ IJnaLibrary::class.java
+                )
+                initialized = true
+            } catch (e: Exception) {
+                return KmmResult.failure(e)
+            }
+        }
+        return KmmResult.success(Unit)
+    }
+
+}
+private fun getJNaLibraryPath(): String {
+    val defaultName = "longfellow_mdoc"
+    val isAndroid = System.getProperty("java.vendor")?.lowercase()?.contains("android") == true
+    if (isAndroid) return defaultName
+
+    val os = System.getProperty("os.name").lowercase()
+    val arch = System.getProperty("os.arch").lowercase()
+    val suffix = when {
+        os.contains("mac") || os.contains("darwin") -> "dylib"
+        os.contains("win") -> "dll"
+        else -> "so"
+    }
+    return "/native/${os}-${arch}/${defaultName}.${suffix}"
+}
+private inline fun <T> T?.toKmmResultIfNotNull(
+    exception: () -> Throwable = { NoSuchElementException("Value was null") }
+): KmmResult<T> =
+    if (this != null) KmmResult.success(this) else KmmResult.failure(exception())
+

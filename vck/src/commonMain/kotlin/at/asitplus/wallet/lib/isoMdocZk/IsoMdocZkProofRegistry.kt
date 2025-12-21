@@ -19,7 +19,7 @@ object IsoMdocZkProofRegistry {
     init {
         // TODO: rethink auto registration
         val autoRegisteredProofSystems = setOf<IsoMdocZkProofFactory>(
-            IsoMdocLongfellowZKProof.Factory
+            IsoMdocLongfellowZkProofFactory(),
         )
         autoRegisteredProofSystems.forEach { proofSystem ->
             register(proofSystem).onFailure {
