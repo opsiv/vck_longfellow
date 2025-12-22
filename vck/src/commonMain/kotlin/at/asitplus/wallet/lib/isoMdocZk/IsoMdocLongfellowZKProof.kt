@@ -20,12 +20,13 @@ import at.asitplus.wallet.lib.agent.PresentationRequestParameters
 import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 import at.asitplus.wallet.lib.agent.build
 import at.asitplus.wallet.lib.longfellow.BackendLongfellowZkHandleAndCircuitProvider
-import at.asitplus.wallet.lib.longfellow.FileCachingLongfellowZkHandleAndCircuitProvider
+import at.asitplus.wallet.lib.longfellow.FileCachingLongfellowZkProvider
 import at.asitplus.wallet.lib.longfellow.LongfellowZkParams
 import at.asitplus.wallet.lib.longfellow.longfellowzk.RequestedItem
 import at.asitplus.wallet.lib.longfellow.longfellowzk.backend.LongfellowZkBackend
 import at.asitplus.wallet.lib.longfellow.longfellowzk.backend.provideLongfellowZkBackend
 import com.ionspin.kotlin.bignum.modular.ModularBigInteger
+import kotlinx.io.files.Path
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.encodeToByteArray
 import kotlin.time.Clock
@@ -108,14 +109,14 @@ class IsoMdocLongfellowZKProof private constructor(
             val issuerKey = extractIssuerKey(msoX5Chain)
             val zkParams = buildParams(zkSystemSpec, backend)
 
-            val issuerZkSignedItems = document.issuerSigned.namespaces.toNamespacedZkSignedList()
+            val issuerZkSignedItems = document.issuerSigned.namespaces.toNamespacedIssuerZkSignedList()
             val requestedItems = issuerZkSignedItems.toRequestedItems()
             require(requestedItems.all { it.isValid() }) {
                 "Prover can't compute with requested item!"
             }
 
             val docType = document.docType
-            val deviceZkSignedNamespaces = document.deviceSigned.namespaces.value.entries.toNamespacedZkSignedList()
+            val deviceZkSignedNamespaces = document.deviceSigned.namespaces.value.entries.toNamespacedDeviceZkSignedList()
 
             val deviceResponse = DeviceResponse(
                 version = "1.0",
@@ -226,9 +227,9 @@ class IsoMdocLongfellowZKProof private constructor(
             circuitId = requireNotNull(zkSystemSpec.params[CIRCUIT_HASH_IDENTIFIER] as? String) {
                 "No circuit hash provided"
             },
-            provider = FileCachingLongfellowZkHandleAndCircuitProvider(
+            provider = FileCachingLongfellowZkProvider(
                 delegate = BackendLongfellowZkHandleAndCircuitProvider(backend),
-                fileStore = at.asitplus.wallet.lib.longfellow.FileStore()
+                baseDir = Path(SYSTEM_NAME)
             )
         )
     }
@@ -243,8 +244,7 @@ private fun isIso8601Compliant(validityInfo: ValidityInfo?): Boolean {
     } ?: false
 }
 
-@JvmName("issuerSignedListToNamespacedZkSignedList")
-private fun Map<String, IssuerSignedList>?.toNamespacedZkSignedList(): Map<String, ZkSignedList> =
+private fun Map<String, IssuerSignedList>?.toNamespacedIssuerZkSignedList(): Map<String, ZkSignedList> =
     this?.mapValues { (_, issuerList) ->
         ZkSignedList(
             entries = issuerList.entries.map { entry ->
@@ -256,8 +256,7 @@ private fun Map<String, IssuerSignedList>?.toNamespacedZkSignedList(): Map<Strin
         )
     } ?: emptyMap()
 
-@JvmName("deviceSignedListToNamespacedZkSignedList")
-private fun Map<String, DeviceSignedItemList>?.toNamespacedZkSignedList(): Map<String, ZkSignedList> =
+private fun Map<String, DeviceSignedItemList>?.toNamespacedDeviceZkSignedList(): Map<String, ZkSignedList> =
     this?.mapValues { (_, deviceSignedList) ->
         ZkSignedList(
             entries = deviceSignedList.entries.map { entry ->
