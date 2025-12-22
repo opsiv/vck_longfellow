@@ -27,6 +27,10 @@ kotlin {
             dependencies {
                 api(project(":dif-data-classes"))
                 api(project(":openid-data-classes"))
+                //NEW
+                implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.8.2")
+                implementation("org.jetbrains.kotlinx:kotlinx-io-paths:0.8.2")
+                // ENDNEW
                 commonImplementationAndApiDependencies()
             }
         }

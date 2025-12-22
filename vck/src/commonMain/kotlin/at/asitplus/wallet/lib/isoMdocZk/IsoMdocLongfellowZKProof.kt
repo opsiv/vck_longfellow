@@ -19,6 +19,8 @@ import at.asitplus.signum.indispensable.pki.X509Certificate
 import at.asitplus.wallet.lib.agent.PresentationRequestParameters
 import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 import at.asitplus.wallet.lib.agent.build
+import at.asitplus.wallet.lib.longfellow.BackendLongfellowZkHandleAndCircuitProvider
+import at.asitplus.wallet.lib.longfellow.FileCachingLongfellowZkHandleAndCircuitProvider
 import at.asitplus.wallet.lib.longfellow.LongfellowZkParams
 import at.asitplus.wallet.lib.longfellow.longfellowzk.RequestedItem
 import at.asitplus.wallet.lib.longfellow.longfellowzk.backend.LongfellowZkBackend
@@ -29,11 +31,6 @@ import kotlinx.serialization.encodeToByteArray
 import kotlin.time.Clock
 import kotlin.time.Instant
 
-/**
- * Represents a Longfellow ZK proof for ISO mDoc.
- *
- * Instances are created exclusively via the [Factory].
- */
 class IsoMdocLongfellowZKProof private constructor(
     override val zkSystemSpec: ZkSystemSpec,
     override val timestamp: Instant,
@@ -47,7 +44,7 @@ class IsoMdocLongfellowZKProof private constructor(
 ) : IsoMdocZkProof() {
 
     private val issuerKey: CryptoPublicKey.EC = extractIssuerKey(msoX5Chain)
-    private val zkParams: LongfellowZkParams = buildParams(zkSystemSpec)
+    private val zkParams: LongfellowZkParams = buildParams(zkSystemSpec, backend)
 
     override fun verify(): Boolean {
         val requestedItems = issuerZkSignedNamespaces.toRequestedItems()
@@ -70,12 +67,6 @@ class IsoMdocLongfellowZKProof private constructor(
         ).getOrThrow()
     }
 
-    /**
-     * Factory for creating [IsoMdocLongfellowZKProof] instances.
-     *
-     * For production use, use [Default] which uses the platform-specific backend.
-     * For testing, create an instance with a custom/stub [LongfellowZkBackend].
-     */
     class Factory(
         private val backend: LongfellowZkBackend
     ) : IsoMdocZkProofFactory {
@@ -115,16 +106,16 @@ class IsoMdocLongfellowZKProof private constructor(
 
             val msoX5Chain = document.issuerSigned.issuerAuth.unprotectedHeader?.certificateChain
             val issuerKey = extractIssuerKey(msoX5Chain)
-            val zkParams = buildParams(zkSystemSpec)
+            val zkParams = buildParams(zkSystemSpec, backend)
 
-            val issuerZkSignedItems = document.issuerSigned.namespaces.toIssuerDisclosed()
+            val issuerZkSignedItems = document.issuerSigned.namespaces.toNamespacedZkSignedList()
             val requestedItems = issuerZkSignedItems.toRequestedItems()
             require(requestedItems.all { it.isValid() }) {
                 "Prover can't compute with requested item!"
             }
 
             val docType = document.docType
-            val deviceZkSignedNamespaces = document.deviceSigned.namespaces.value.entries.toDeviceDisclosed()
+            val deviceZkSignedNamespaces = document.deviceSigned.namespaces.value.entries.toNamespacedZkSignedList()
 
             val deviceResponse = DeviceResponse(
                 version = "1.0",
@@ -211,10 +202,6 @@ class IsoMdocLongfellowZKProof private constructor(
             BLOCK_ENC_SIG_IDENTIFIER to Int.serializer(),
         )
 
-        /**
-         * Default factory using the platform-specific [LongfellowZkBackend].
-         * Use this for production. For testing, create a [Factory] with a custom backend.
-         */
         val Default: IsoMdocZkProofFactory by lazy {
             Factory(provideLongfellowZkBackend())
         }
@@ -231,11 +218,18 @@ class IsoMdocLongfellowZKProof private constructor(
                 ?: error("Could not parse EC key from certificate")
         }
 
-        private fun buildParams(zkSystemSpec: ZkSystemSpec) = LongfellowZkParams(
+        private fun buildParams(
+            zkSystemSpec: ZkSystemSpec,
+            backend: LongfellowZkBackend
+        ) = LongfellowZkParams(
             systemName = SYSTEM_NAME,
             circuitId = requireNotNull(zkSystemSpec.params[CIRCUIT_HASH_IDENTIFIER] as? String) {
                 "No circuit hash provided"
-            }
+            },
+            provider = FileCachingLongfellowZkHandleAndCircuitProvider(
+                delegate = BackendLongfellowZkHandleAndCircuitProvider(backend),
+                fileStore = at.asitplus.wallet.lib.longfellow.FileStore()
+            )
         )
     }
 }
@@ -249,7 +243,8 @@ private fun isIso8601Compliant(validityInfo: ValidityInfo?): Boolean {
     } ?: false
 }
 
-private fun Map<String, IssuerSignedList>?.toIssuerDisclosed(): Map<String, ZkSignedList> =
+@JvmName("issuerSignedListToNamespacedZkSignedList")
+private fun Map<String, IssuerSignedList>?.toNamespacedZkSignedList(): Map<String, ZkSignedList> =
     this?.mapValues { (_, issuerList) ->
         ZkSignedList(
             entries = issuerList.entries.map { entry ->
@@ -261,7 +256,8 @@ private fun Map<String, IssuerSignedList>?.toIssuerDisclosed(): Map<String, ZkSi
         )
     } ?: emptyMap()
 
-private fun Map<String, DeviceSignedItemList>?.toDeviceDisclosed(): Map<String, ZkSignedList> =
+@JvmName("deviceSignedListToNamespacedZkSignedList")
+private fun Map<String, DeviceSignedItemList>?.toNamespacedZkSignedList(): Map<String, ZkSignedList> =
     this?.mapValues { (_, deviceSignedList) ->
         ZkSignedList(
             entries = deviceSignedList.entries.map { entry ->
@@ -273,16 +269,16 @@ private fun Map<String, DeviceSignedItemList>?.toDeviceDisclosed(): Map<String, 
         )
     } ?: emptyMap()
 
-internal fun Map<String, ZkSignedList>.toRequestedItems() = flatMap { (namespace, itemList) ->
+private fun Map<String, ZkSignedList>.toRequestedItems() = flatMap { (namespace, itemList) ->
     itemList.entries.map { item ->
         RequestedItem(namespace, item.elementIdentifier, item.elementValue)
     }
 }
 
-internal fun Instant.toIso8601(): String {
+private fun Instant.toIso8601(): String {
     require(this.nanosecondsOfSecond == 0) { "Instance of 'Instant' is not ISO 8601 compatible" }
     return this.toString()
 }
 
 private fun ModularBigInteger.toPrefixedHexString() = "0x${this.toString(16)}"
-internal fun CryptoPublicKey.EC.toPrefixedHexString() = this.x.toPrefixedHexString() to this.y.toPrefixedHexString()
+private fun CryptoPublicKey.EC.toPrefixedHexString() = this.x.toPrefixedHexString() to this.y.toPrefixedHexString()

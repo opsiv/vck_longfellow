@@ -2,42 +2,65 @@ package at.asitplus.wallet.lib.longfellow
 
 import at.asitplus.wallet.lib.longfellow.longfellowzk.backend.LongfellowZkBackend
 import at.asitplus.wallet.lib.longfellow.longfellowzk.ZkSpecHandle
-import at.asitplus.wallet.lib.longfellow.longfellowzk.backend.provideLongfellowZkBackend
 import io.github.aakira.napier.Napier
+import kotlinx.io.files.FileSystem
+import kotlinx.io.files.Path
 
 data class LongfellowZkParams (
     val systemName: String,
-    val circuitId: String
+    val circuitId: String,
+    private val provider: LongfellowZkHandleAndCircuitProvider
 ) {
-    val handle: ZkSpecHandle by lazy {
-        getHandle(this)
-    }
+    val circuit = provider.getCircuit(this)
+    val handle = provider.getHandle(this)
+}
 
-    val circuit: ByteArray by lazy {
-        getRaw(this)
-    }
 
-    companion object {
-        private val handleCache = mutableMapOf<LongfellowZkParams, ZkSpecHandle>()
-        private val circuitCache = mutableMapOf<LongfellowZkParams, ByteArray>()
+interface LongfellowZkHandleAndCircuitProvider {
+    fun getHandle(params: LongfellowZkParams): ZkSpecHandle
+    fun getCircuit(params: LongfellowZkParams): ByteArray
+}
 
-        private fun getHandle(
-            longfellowZkParams: LongfellowZkParams,
-            longfellowZkBackend: LongfellowZkBackend = provideLongfellowZkBackend()
-        ): ZkSpecHandle {
-            return handleCache.getOrPut(longfellowZkParams) {
-                Napier.d("Fetching circuit handle")
-                longfellowZkBackend.findZkSpec(longfellowZkParams.systemName, longfellowZkParams.circuitId).getOrThrow()
-            }
+class BackendLongfellowZkHandleAndCircuitProvider(
+    private val backend: LongfellowZkBackend
+) : LongfellowZkHandleAndCircuitProvider {
+    override fun getHandle(params: LongfellowZkParams): ZkSpecHandle =
+        backend.findZkSpec(params.systemName, params.circuitId).getOrThrow()
+
+    override fun getCircuit(params: LongfellowZkParams): ByteArray =
+        backend.generateCircuit(getHandle(params)).getOrThrow()
+}
+
+class FileCachingLongfellowZkProvider(
+    private val delegate: LongfellowZkHandleAndCircuitProvider,
+    private val baseDir: Path = "longfellow".toPath()
+) : LongfellowZkHandleAndCircuitProvider {
+
+    private val fs = FileSystem.SYSTEM
+    private val circuitCache = mutableMapOf<String, ByteArray>()
+    private val handleCache = mutableMapOf<String, ZkSpecHandle>()
+
+    override fun getHandle(params: LongfellowZkParams): ZkSpecHandle {
+        return handleCache.getOrPut(params.circuitId) {
+            Napier.d("Fetching circuit handle")
+            delegate.getHandle(params)
         }
-        private fun getRaw(
-            longfellowZkParams: LongfellowZkParams,
-            longfellowZkBackend: LongfellowZkBackend = provideLongfellowZkBackend()
-            ): ByteArray {
-            return circuitCache.getOrPut(longfellowZkParams) {
-                Napier.d("Generating circuit")
-                longfellowZkBackend.generateCircuit(longfellowZkParams.handle).getOrThrow()
+    }
+
+    override fun getCircuit(params: LongfellowZkParams): ByteArray {
+        val key = params.circuitId
+        return circuitCache.getOrPut(key) {
+            val path = baseDir / "$key.circuit"
+            if (fs.exists(path)) {
+                return@getOrPut fs.read(path) { readByteArray() }
             }
+            val circuit = delegate.getCircuit(params)
+            try {
+                fs.write(path) { write(circuit) }
+            } catch (e: Exception) {
+                Napier.d("Could not persist circuit to file: ${e.message}")
+            }
+            circuit
         }
     }
 }
