@@ -21,9 +21,11 @@ import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 import at.asitplus.wallet.lib.agent.build
 import at.asitplus.wallet.lib.isoMdocZk.IsoMdocZkProof
 import at.asitplus.wallet.lib.isoMdocZk.IsoMdocZkProofFactory
-import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.RequestedItem
 import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.backend.NativeLongfellowZkBackend
 import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.backend.LongfellowZkBackend
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.handleAndCircuitProvider.BasicHandleAndCircuitProvider
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.handleAndCircuitProvider.FileBasedPersistentHandleAndCircuitProvider
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.handleAndCircuitProvider.HandleAndCircuitProvider
 import com.ionspin.kotlin.bignum.modular.ModularBigInteger
 import kotlinx.io.files.Path
 import kotlinx.serialization.builtins.serializer
@@ -214,7 +216,7 @@ class IsoMdocLongfellowZKProof private constructor(
         )
 
         val Default: IsoMdocZkProofFactory by lazy {
-            Factory(NativeLongfellowZkBackend) { backend -> PersistentHandleAndCircuitProvider(
+            Factory(NativeLongfellowZkBackend) { backend -> FileBasedPersistentHandleAndCircuitProvider(
                 BasicHandleAndCircuitProvider(backend), Path(SYSTEM_NAME))
             }
         }
