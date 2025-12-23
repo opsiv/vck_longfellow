@@ -18,9 +18,11 @@ import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
 import kotlin.time.Instant
 
-actual object NativeLibrary {
+actual object NativeLongfellowZkBackend : LongfellowZkBackend by CinteropLongfellowZkBackend
+
+object CinteropLongfellowZkBackend {
     @OptIn(ExperimentalUnsignedTypes::class, ExperimentalForeignApi::class)
-    actual fun generateCircuit(zkSpec: ZkSpecHandle): KmmResult<ByteArray> {
+    override fun generateCircuit(zkSpec: ZkSpecHandle): KmmResult<ByteArray> {
         val result = ScopedNativeBuffer { pointers ->
             generate_circuit(
                 zk_spec_version = zkSpec.ptr,
@@ -32,7 +34,7 @@ actual object NativeLibrary {
     }
 
     @OptIn(ExperimentalForeignApi::class)
-    actual fun generateProof(
+    fun generateProof(
         circuit: ByteArray,
         deviceResponseObject: ByteArray,
         issuerPublicKey: CryptoPublicKey.EC,
@@ -72,7 +74,7 @@ actual object NativeLibrary {
 
 
     @OptIn(ExperimentalForeignApi::class)
-    actual fun verifyProof(
+    fun verifyProof(
         circuit: ByteArray,
         issuerPublicKey: CryptoPublicKey.EC,
         transcript: ByteArray,
@@ -114,7 +116,7 @@ actual object NativeLibrary {
         }
     }
     @OptIn(ExperimentalForeignApi::class)
-    actual fun findZkSpec(systemName: String, circuitHash: String): KmmResult<ZkSpecHandle> {
+    fun findZkSpec(systemName: String, circuitHash: String): KmmResult<ZkSpecHandle> {
         val zkSpecPtr = find_zk_spec(systemName, circuitHash)
         return ZkSpecHandle.toZkSpecHandle(zkSpecPtr).toKmmResultIfNotNull()
     }
