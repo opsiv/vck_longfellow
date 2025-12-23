@@ -1,4 +1,4 @@
-package at.asitplus.wallet.lib.longfellow.longfellowzk
+package at.asitplus.iso.zk.longfellowzk
 
 
 import at.asitplus.signum.longfellow.src.iosMain.cinterop.ZkSpecStruct

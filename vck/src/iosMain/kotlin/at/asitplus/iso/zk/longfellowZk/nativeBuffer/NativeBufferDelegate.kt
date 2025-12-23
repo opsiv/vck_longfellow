@@ -1,4 +1,4 @@
-package at.asitplus.wallet.lib.longfellow.nativeBuffer
+package at.asitplus.iso.zk.longfellowZk.nativeBuffer
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.nativeHeap

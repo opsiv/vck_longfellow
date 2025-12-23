@@ -1,4 +1,4 @@
-package at.asitplus.wallet.lib.longfellow.nativeBuffer
+package at.asitplus.iso.zk.longfellowZk.nativeBuffer
 
 import kotlinx.cinterop.*
 import platform.posix.size_tVar
