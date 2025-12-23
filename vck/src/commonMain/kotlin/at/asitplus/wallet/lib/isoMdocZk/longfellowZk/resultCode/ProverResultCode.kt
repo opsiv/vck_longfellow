@@ -1,4 +1,4 @@
-package at.asitplus.wallet.lib.longfellow.longfellowzk
+package at.asitplus.wallet.lib.isoMdocZk.longfellowZk.resultCode
 
 enum class ProverResultCode(override val code: Int) : NativeResultCode {
     PROVER_SUCCESS(0),

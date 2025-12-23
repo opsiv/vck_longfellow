@@ -1,4 +1,4 @@
-package at.asitplus.wallet.lib.longfellow.nativeBuffer
+package at.asitplus.wallet.lib.isoMdocZk.longfellowZk.nativeBuffer
 
 internal expect class NativeBufferDelegate() : NativeBuffer {
     override val pointers: NativeBufferPointers

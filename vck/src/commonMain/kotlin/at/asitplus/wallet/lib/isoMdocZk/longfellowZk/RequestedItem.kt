@@ -1,4 +1,4 @@
-package at.asitplus.wallet.lib.longfellow.longfellowzk
+package at.asitplus.wallet.lib.isoMdocZk.longfellowZk
 
 import at.asitplus.iso.ZkSignedItemSerializer
 import io.github.aakira.napier.Napier
@@ -13,7 +13,7 @@ class RequestedItem(
 ) {
     val namespaceBytes: ByteArray = namespace.toByteArray()
     val elementIdentifierBytes: ByteArray = elementIdentifier.toByteArray()
-    val elementValueBytes: ByteArray = ZkSignedItemSerializer.serializeElementValue(
+    val elementValueBytes: ByteArray = ZkSignedItemSerializer.Companion.serializeElementValue(
         namespace,
         elementValue,
         elementIdentifier

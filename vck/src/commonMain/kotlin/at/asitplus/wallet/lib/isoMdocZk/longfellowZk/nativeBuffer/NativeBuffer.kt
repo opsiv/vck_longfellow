@@ -1,4 +1,4 @@
-package at.asitplus.wallet.lib.longfellow.nativeBuffer
+package at.asitplus.wallet.lib.isoMdocZk.longfellowZk.nativeBuffer
 
 interface NativeBuffer {
     fun snapshot(): ByteArray

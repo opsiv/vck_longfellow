@@ -1,4 +1,4 @@
-package at.asitplus.wallet.lib.isoMdocZk
+package at.asitplus.wallet.lib.isoMdocZk.longfellowZk
 
 import at.asitplus.KmmResult
 import at.asitplus.iso.DeviceResponse
@@ -19,12 +19,11 @@ import at.asitplus.signum.indispensable.pki.X509Certificate
 import at.asitplus.wallet.lib.agent.PresentationRequestParameters
 import at.asitplus.wallet.lib.agent.SubjectCredentialStore
 import at.asitplus.wallet.lib.agent.build
-import at.asitplus.wallet.lib.longfellow.BackendLongfellowZkHandleAndCircuitProvider
-import at.asitplus.wallet.lib.longfellow.FileCachingLongfellowZkProvider
-import at.asitplus.wallet.lib.longfellow.LongfellowZkParams
-import at.asitplus.wallet.lib.longfellow.longfellowzk.RequestedItem
-import at.asitplus.wallet.lib.longfellow.longfellowzk.backend.LongfellowZkBackend
-import at.asitplus.wallet.lib.longfellow.longfellowzk.backend.provideLongfellowZkBackend
+import at.asitplus.wallet.lib.isoMdocZk.IsoMdocZkProof
+import at.asitplus.wallet.lib.isoMdocZk.IsoMdocZkProofFactory
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.RequestedItem
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.backend.NativeLongfellowZkBackend
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.backend.LongfellowZkBackend
 import com.ionspin.kotlin.bignum.modular.ModularBigInteger
 import kotlinx.io.files.Path
 import kotlinx.serialization.builtins.serializer
@@ -41,11 +40,14 @@ class IsoMdocLongfellowZKProof private constructor(
     override val docType: String,
     override val msoX5Chain: List<ByteArray>?,
     private val sessionTranscript: SessionTranscript,
-    private val backend: LongfellowZkBackend
+    private val factory: Factory,
 ) : IsoMdocZkProof() {
 
     private val issuerKey: CryptoPublicKey.EC = extractIssuerKey(msoX5Chain)
-    private val zkParams: LongfellowZkParams = buildParams(zkSystemSpec, backend)
+    private val zkParams: ZkParams = buildParams(
+        zkSystemSpec = zkSystemSpec,
+        provider = factory.handleAndCircuitProvider
+    )
 
     override fun verify(): Boolean {
         val requestedItems = issuerZkSignedNamespaces.toRequestedItems()
@@ -55,7 +57,7 @@ class IsoMdocLongfellowZKProof private constructor(
         val encodedTimestamp = timestamp.toIso8601()
         val sessionTranscriptBytes = coseCompliantSerializer.encodeToByteArray(sessionTranscript)
 
-        return backend.verifyProof(
+        return factory.backend.verifyProof(
             circuit = zkParams.circuit,
             publicKeyX = issuerKeyX,
             publicKeyY = issuerKeyY,
@@ -69,8 +71,10 @@ class IsoMdocLongfellowZKProof private constructor(
     }
 
     class Factory(
-        private val backend: LongfellowZkBackend
+        internal val backend: LongfellowZkBackend,
+        handleAndCircuitProviderFn: (LongfellowZkBackend) -> HandleAndCircuitProvider
     ) : IsoMdocZkProofFactory {
+        internal val handleAndCircuitProvider = handleAndCircuitProviderFn.invoke(backend)
 
         override val systemName = SYSTEM_NAME
         override val paramSerializers = longfellowParamSerializers
@@ -107,7 +111,10 @@ class IsoMdocLongfellowZKProof private constructor(
 
             val msoX5Chain = document.issuerSigned.issuerAuth.unprotectedHeader?.certificateChain
             val issuerKey = extractIssuerKey(msoX5Chain)
-            val zkParams = buildParams(zkSystemSpec, backend)
+            val zkParams = buildParams(
+                zkSystemSpec = zkSystemSpec,
+                provider = handleAndCircuitProvider
+            )
 
             val issuerZkSignedItems = document.issuerSigned.namespaces.toNamespacedIssuerZkSignedList()
             val requestedItems = issuerZkSignedItems.toRequestedItems()
@@ -147,7 +154,7 @@ class IsoMdocLongfellowZKProof private constructor(
                 docType = docType,
                 msoX5Chain = msoX5Chain,
                 sessionTranscript = sessionTranscript,
-                backend = backend,
+                factory = this,
             )
         }
 
@@ -178,13 +185,15 @@ class IsoMdocLongfellowZKProof private constructor(
                 docType = docType,
                 msoX5Chain = msoX5Chain,
                 sessionTranscript = sessionTranscript,
-                backend = backend,
+                factory = this,
             )
         }
 
         private fun requireSupported(zkSystemSpec: ZkSystemSpec) {
             require(supports(zkSystemSpec)) { "Incompatible ZkSystem: ${zkSystemSpec.system}" }
         }
+
+
     }
 
     companion object {
@@ -195,6 +204,7 @@ class IsoMdocLongfellowZKProof private constructor(
         private const val BLOCK_ENC_SIG_IDENTIFIER = "block_enc_sig"
         private const val SYSTEM_NAME = "longfellow-libzk-v1"
 
+
         private val longfellowParamSerializers = mapOf(
             CIRCUIT_HASH_IDENTIFIER to String.serializer(),
             NUM_ATTRIBUTES_IDENTIFIER to Int.serializer(),
@@ -204,7 +214,9 @@ class IsoMdocLongfellowZKProof private constructor(
         )
 
         val Default: IsoMdocZkProofFactory by lazy {
-            Factory(provideLongfellowZkBackend())
+            Factory(NativeLongfellowZkBackend) { backend -> PersistentHandleAndCircuitProvider(
+                BasicHandleAndCircuitProvider(backend), Path(SYSTEM_NAME))
+            }
         }
 
         // TODO: consider checking the whole certificate chain
@@ -221,16 +233,13 @@ class IsoMdocLongfellowZKProof private constructor(
 
         private fun buildParams(
             zkSystemSpec: ZkSystemSpec,
-            backend: LongfellowZkBackend
-        ) = LongfellowZkParams(
+            provider: HandleAndCircuitProvider
+        ) = ZkParams(
             systemName = SYSTEM_NAME,
             circuitId = requireNotNull(zkSystemSpec.params[CIRCUIT_HASH_IDENTIFIER] as? String) {
                 "No circuit hash provided"
             },
-            provider = FileCachingLongfellowZkProvider(
-                delegate = BackendLongfellowZkHandleAndCircuitProvider(backend),
-                baseDir = Path(SYSTEM_NAME)
-            )
+            provider = provider
         )
     }
 }

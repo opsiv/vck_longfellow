@@ -1,7 +1,8 @@
 @file:Suppress("PropertyName")
-package at.asitplus.wallet.lib.longfellow.longfellowzk.jna
 
-import at.asitplus.wallet.lib.longfellow.longfellowzk.RequestedItem
+package at.asitplus.wallet.lib.isoMdocZk.longfellowZk.jna
+
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.RequestedItem
 import com.sun.jna.Structure
 
 @Structure.FieldOrder("namespace_id", "id", "cbor_value", "namespace_len", "id_len", "cbor_value_len")

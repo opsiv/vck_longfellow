@@ -8,6 +8,7 @@ import at.asitplus.iso.ZkSystemSpec
 import at.asitplus.wallet.lib.agent.IsoPresentationMeta
 import at.asitplus.wallet.lib.agent.PresentationRequestParameters
 import at.asitplus.wallet.lib.agent.SubjectCredentialStore
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.IsoMdocLongfellowZKProof
 import io.github.aakira.napier.Napier
 
 

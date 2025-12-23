@@ -1,4 +1,4 @@
-package at.asitplus.wallet.lib.longfellow.nativeBuffer
+package at.asitplus.wallet.lib.isoMdocZk.longfellowZk.nativeBuffer
 
 /**
  * A scoped wrapper around a malloc'ed native buffer.

@@ -1,4 +1,4 @@
-package at.asitplus.wallet.lib.longfellow.longfellowzk
+package at.asitplus.wallet.lib.isoMdocZk.longfellowZk.resultCode
 
 enum class CircuitResultCode(override val code: Int) : NativeResultCode {
     CIRCUIT_GENERATION_SUCCESS(0),

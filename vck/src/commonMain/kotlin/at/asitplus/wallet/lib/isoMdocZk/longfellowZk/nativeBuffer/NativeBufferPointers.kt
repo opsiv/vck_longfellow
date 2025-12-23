@@ -1,4 +1,4 @@
-package at.asitplus.wallet.lib.longfellow.nativeBuffer
+package at.asitplus.wallet.lib.isoMdocZk.longfellowZk.nativeBuffer
 
 
 /**
@@ -9,7 +9,7 @@ package at.asitplus.wallet.lib.longfellow.nativeBuffer
  * This type is declared as `expect` in common code and resolved to the appropriate
  * platform type in each target, i.e.
  *   - `PointerByReference` on JVM, `CPointerVar<UByteVar>` with citnerop for the Byte Array values
- *   - `LongByReference` on JVM, `size_tVar` with cinterop for the the Byte Array length
+ *   - `LongByReference` on JVM, `size_tVar` with cinterop for the Byte Array length
  *
  * It is primarily used in scenarios where a native function allocates or
  * returns a buffer of bytes and provides the pointer via an out‑parameter.

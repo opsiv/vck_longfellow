@@ -1,8 +1,8 @@
-package at.asitplus.wallet.lib.longfellow.longfellowzk.backend
+package at.asitplus.wallet.lib.isoMdocZk.longfellowZk.backend
 
 import at.asitplus.KmmResult
-import at.asitplus.wallet.lib.longfellow.longfellowzk.RequestedItem
-import at.asitplus.wallet.lib.longfellow.longfellowzk.ZkSpecHandle
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.RequestedItem
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.ZkSpecHandle
 
 /**
  * Interacts with the native LongfellowZk backend.
@@ -40,5 +40,7 @@ interface LongfellowZkBackend {
 
     fun findZkSpec(systemName: String, circuitHash: String): KmmResult<ZkSpecHandle>
 }
+
+
 
 

@@ -1,5 +1,6 @@
-package at.asitplus.wallet.lib.longfellow.nativeBuffer
+package at.asitplus.wallet.lib.isoMdocZk.longfellowZk.nativeBuffer
 
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.nativeBuffer.NativeBuffer
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 

@@ -1,17 +1,19 @@
-package at.asitplus.wallet.lib.longfellow.longfellowzk.backend
+package at.asitplus.wallet.lib.isoMdocZk.longfellowZk.backend
 
 import at.asitplus.KmmResult
-import at.asitplus.wallet.lib.longfellow.longfellowzk.CircuitResultCode
-import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeResult
-import at.asitplus.wallet.lib.longfellow.longfellowzk.NativeResultException
-import at.asitplus.wallet.lib.longfellow.longfellowzk.ProverResultCode
-import at.asitplus.wallet.lib.longfellow.longfellowzk.RequestedItem
-import at.asitplus.wallet.lib.longfellow.longfellowzk.VerifierResultCode
-import at.asitplus.wallet.lib.longfellow.longfellowzk.ZkSpecHandle
-import at.asitplus.wallet.lib.longfellow.longfellowzk.jna.IJnaLibrary
-import at.asitplus.wallet.lib.longfellow.longfellowzk.jna.toStructArray
-import at.asitplus.wallet.lib.longfellow.nativeBuffer.ScopedNativeBuffer
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.jna.IJnaLibrary
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.jna.toStructArray
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.resultCode.CircuitResultCode
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.resultCode.NativeResult
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.resultCode.NativeResultException
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.resultCode.ProverResultCode
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.RequestedItem
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.resultCode.VerifierResultCode
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.ZkSpecHandle
+import at.asitplus.wallet.lib.isoMdocZk.longfellowZk.nativeBuffer.ScopedNativeBuffer
 import com.sun.jna.Native
+
+actual object NativeLongfellowZkBackend : LongfellowZkBackend by JnaLongfellowZkBackend
 
 object JnaLongfellowZkBackend: LongfellowZkBackend {
     private var initialized = false
@@ -102,9 +104,7 @@ object JnaLongfellowZkBackend: LongfellowZkBackend {
                     /* interfaceClass = */ IJnaLibrary::class.java
                 )
                 initialized = true
-            } catch (e: Exception) {
-                return KmmResult.failure(e)
-            }
+            } catch (e: Exception) { return KmmResult.failure(e) }
         }
         return KmmResult.success(Unit)
     }

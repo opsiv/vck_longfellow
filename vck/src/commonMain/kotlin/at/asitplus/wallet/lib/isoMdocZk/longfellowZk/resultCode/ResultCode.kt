@@ -1,4 +1,4 @@
-package at.asitplus.wallet.lib.longfellow.longfellowzk
+package at.asitplus.wallet.lib.isoMdocZk.longfellowZk.resultCode
 
 import at.asitplus.KmmResult
 

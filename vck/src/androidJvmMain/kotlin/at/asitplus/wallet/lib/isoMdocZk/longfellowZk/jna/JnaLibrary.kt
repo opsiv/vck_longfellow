@@ -1,6 +1,6 @@
 @file:Suppress("PropertyName", "FunctionName", "LocalVariableName")
 
-package at.asitplus.wallet.lib.longfellow.longfellowzk.jna
+package at.asitplus.wallet.lib.isoMdocZk.longfellowZk.jna
 
 import com.sun.jna.Library
 import com.sun.jna.Pointer
