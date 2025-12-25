@@ -115,8 +115,8 @@ private fun getJNaLibraryPath(): String {
     val isAndroid = System.getProperty("java.vendor")?.lowercase()?.contains("android") == true
     if (isAndroid) return defaultName
 
-    val os = System.getProperty("os.name").lowercase()
-    val arch = System.getProperty("os.arch").lowercase()
+    val os = System.getProperty("os.name").lowercase().replace("\\s+".toRegex(), "")
+    val arch = System.getProperty("os.arch").lowercase().replace("\\s+".toRegex(), "")
     val suffix = when {
         os.contains("mac") || os.contains("darwin") -> "dylib"
         os.contains("win") -> "dll"

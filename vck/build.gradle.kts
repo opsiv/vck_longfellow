@@ -18,9 +18,32 @@ kotlin {
     jvm()
     vckAndroid()
     if ("true" != disableAppleTargets) {
-        iosArm64()
-        iosSimulatorArm64()
-        iosX64()
+        val iosTargets = listOf(iosArm64(), iosX64(), iosSimulatorArm64())
+
+        iosTargets.forEach { target ->
+            val arch = when (target.name) {
+                "iosArm64" -> "arm64"
+                "iosX64" -> "x86_644-simulator"
+                "iosSimulatorArm64" -> "arm64-simulator"
+                else -> error("Unsupported target ${target.name}")
+            }
+
+            target.compilations.getByName("main") {
+                val longfellow by cinterops.creating {
+                    definitionFile.set(file("src/iosMain/cinterop/longfellow.def"))
+                    includeDirs("src/iosMain/cinterop")
+                }
+
+                target.binaries.all {
+                    linkerOpts(
+                        "-L${projectDir}/src/iosMain/libs/$arch",
+                        "-llongfellow",
+                        "-rpath",
+                        "@exectuable_path/Frameworks"
+                    )
+                }
+            }
+        }
     }
     sourceSets {
         commonMain {
