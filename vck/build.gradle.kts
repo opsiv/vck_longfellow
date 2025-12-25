@@ -23,7 +23,7 @@ kotlin {
         iosTargets.forEach { target ->
             val arch = when (target.name) {
                 "iosArm64" -> "arm64"
-                "iosX64" -> "x86_644-simulator"
+                "iosX64" -> "x86_64-simulator"
                 "iosSimulatorArm64" -> "arm64-simulator"
                 else -> error("Unsupported target ${target.name}")
             }
@@ -36,10 +36,10 @@ kotlin {
 
                 target.binaries.all {
                     linkerOpts(
-                        "-L${projectDir}/src/iosMain/libs/$arch",
+                        "-L${projectDir}/src/iosMain/cinterop/libs/$arch",
                         "-llongfellow",
                         "-rpath",
-                        "@exectuable_path/Frameworks"
+                        "@executable_path/Frameworks"
                     )
                 }
             }
