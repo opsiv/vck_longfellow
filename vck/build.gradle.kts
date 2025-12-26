@@ -39,12 +39,18 @@ kotlin {
                 }
 
                 target.binaries.all {
-                    linkerOpts(
-                        "-L${projectDir}/src/iosMain/cinterop/libs/$arch",
-                        "-llongfellow",
-                        "-rpath",
-                        "@executable_path/Frameworks"
-                    )
+                    linkerOpts("-L${projectDir}/src/iosMain/cinterop/libs/$arch")
+                    linkerOpts("-llongfellow_mdoc")
+                    linkerOpts("-Wl,-rpath,@executable_path/Frameworks")
+                    
+                    // Copy dylib to Frameworks folder for runtime
+                    val binary = this
+                    val taskName = "copyLongfellowDylib${target.name.replaceFirstChar { it.uppercase() }}${binary.name.replaceFirstChar { it.uppercase() }}"
+                    val copyTask = tasks.register(taskName, Copy::class) {
+                        from("${projectDir}/src/iosMain/cinterop/libs/$arch/liblongfellow_mdoc.dylib")
+                        into(File(binary.outputDirectory, "Frameworks"))
+                    }
+                    binary.linkTaskProvider.configure { finalizedBy(copyTask) }
                 }
             }
         }

@@ -1,0 +1,9 @@
+# Longfellow ZK library for iOS
+# The Kotlin bindings will be generated in this package
+package = at.asitplus.iso.zk.longfellowZk.cinterop
+
+language = C
+
+# Header file(s) - place longfellow.h in the headers/ directory next to this file
+headers = longfellow.h
+

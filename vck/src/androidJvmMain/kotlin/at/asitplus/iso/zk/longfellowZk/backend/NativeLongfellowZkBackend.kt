@@ -109,18 +109,20 @@ object JnaLongfellowZkBackend: LongfellowZkBackend {
         return KmmResult.success(Unit)
     }
 
-}
-private fun getJNaLibraryPath(): String {
-    val defaultName = "longfellow_mdoc"
-    val isAndroid = System.getProperty("java.vendor")?.lowercase()?.contains("android") == true
-    if (isAndroid) return defaultName
+    private fun getJNaLibraryPath(): String {
+        val defaultName = "longfellow_mdoc"
+        val isAndroid = System.getProperty("java.vendor")?.lowercase()?.contains("android") == true
+        if (isAndroid) return defaultName
 
-    val os = System.getProperty("os.name").lowercase().replace("\\s+".toRegex(), "")
-    val arch = System.getProperty("os.arch").lowercase().replace("\\s+".toRegex(), "")
-    val suffix = when {
-        os.contains("mac") || os.contains("darwin") -> "dylib"
-        os.contains("win") -> "dll"
-        else -> "so"
+        val os = System.getProperty("os.name").lowercase().replace("\\s+".toRegex(), "")
+        val arch = System.getProperty("os.arch").lowercase().replace("\\s+".toRegex(), "")
+        val suffix = when {
+            os.contains("mac") || os.contains("darwin") -> "dylib"
+            os.contains("win") -> "dll"
+            else -> "so"
+        }
+        return "/native/${os}-${arch}/${defaultName}.${suffix}"
     }
-    return "/native/${os}-${arch}/${defaultName}.${suffix}"
+
 }
+
