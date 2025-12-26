@@ -20,7 +20,7 @@ kotlin {
     if ("true" != disableAppleTargets) {
         iosArm64()
         iosSimulatorArm64()
-        iosX64()
+        // iosX64()
     }
     sourceSets {
 

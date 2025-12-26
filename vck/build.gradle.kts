@@ -18,7 +18,11 @@ kotlin {
     jvm()
     vckAndroid()
     if ("true" != disableAppleTargets) {
-        val iosTargets = listOf(iosArm64(), iosX64(), iosSimulatorArm64())
+        val iosTargets = listOf(
+            iosArm64(),
+            // iosX64(),
+            iosSimulatorArm64()
+        )
 
         iosTargets.forEach { target ->
             val arch = when (target.name) {
