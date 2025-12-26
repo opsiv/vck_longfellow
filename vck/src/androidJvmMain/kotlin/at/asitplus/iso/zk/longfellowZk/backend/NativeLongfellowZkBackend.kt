@@ -124,8 +124,3 @@ private fun getJNaLibraryPath(): String {
     }
     return "/native/${os}-${arch}/${defaultName}.${suffix}"
 }
-private inline fun <T> T?.toKmmResultIfNotNull(
-    exception: () -> Throwable = { NoSuchElementException("Value was null") }
-): KmmResult<T> =
-    if (this != null) KmmResult.success(this) else KmmResult.failure(exception())
-

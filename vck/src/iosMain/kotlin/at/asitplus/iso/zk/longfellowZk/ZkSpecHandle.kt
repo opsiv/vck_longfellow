@@ -1,7 +1,7 @@
-package at.asitplus.iso.zk.longfellowzk
+package at.asitplus.iso.zk.longfellowZk
 
 
-import at.asitplus.signum.longfellow.src.iosMain.cinterop.ZkSpecStruct
+import at.asitplus.iso.zk.longfellowZk.cinterop.ZkSpecStruct
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 

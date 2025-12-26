@@ -2,16 +2,15 @@
 
 package at.asitplus.iso.zk.longfellowZk.cinterop
 
+
 import at.asitplus.iso.zk.longfellowZk.RequestedItem
-import at.asitplus.signum.longfellow.longfellowzk.RequestedItem
-import at.asitplus.signum.longfellow.src.iosMain.cinterop.RequestedAttribute
 import kotlinx.cinterop.*
 import platform.posix.memcpy
 
 
 @OptIn(ExperimentalUnsignedTypes::class, ExperimentalForeignApi::class)
 fun MemScope.convertToNative(
-    requestedItems: List<RequestedItems>
+    requestedItems: List<RequestedItem>
 ): CValuesRef<RequestedAttribute>? {
     if (requestedItems.isEmpty()) return null
 
@@ -28,9 +27,9 @@ fun MemScope.convertToNative(
         val src = requestedItems[i]
         val dst = arr[i]
 
-        dst.namespace_len  = copyStringToNative(src.namspaceBytes, dst.namespace_id!!)
-        dst.id_len         = copyStringToNative(src.elementIdentifierBytes, dst.id!!)
-        dst.cbor_value_len = copyStringToNative(src.elementValueBytes, dst.cbor_value!!)
+        dst.namespace_len  = copyStringToNative(src.namespaceBytes, dst.namespace_id)
+        dst.id_len         = copyStringToNative(src.elementIdentifierBytes, dst.id)
+        dst.cbor_value_len = copyStringToNative(src.elementValueBytes, dst.cbor_value)
     }
 
     return arr

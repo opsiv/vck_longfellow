@@ -11,8 +11,8 @@ class RequestedItem(
     elementIdentifier: String,
     elementValue: Any
 ) {
-    val namespaceBytes: ByteArray = namespace.toByteArray()
-    val elementIdentifierBytes: ByteArray = elementIdentifier.toByteArray()
+    val namespaceBytes: ByteArray = namespace.encodeToByteArray()
+    val elementIdentifierBytes: ByteArray = elementIdentifier.encodeToByteArray()
     val elementValueBytes: ByteArray = ZkSignedItemSerializer.Companion.serializeElementValue(
         namespace,
         elementValue,

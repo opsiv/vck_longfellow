@@ -66,7 +66,7 @@ val ZkDocumentSerializationTest by testSuite {
                     ),
                 )
             ),
-            proof = "test".toByteArray()
+            proof = "test".encodeToByteArray()
         )
 
         val serialized = coseCompliantSerializer.encodeToByteArray(doc)
