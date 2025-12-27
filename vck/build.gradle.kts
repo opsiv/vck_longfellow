@@ -18,42 +18,8 @@ kotlin {
     jvm()
     vckAndroid()
     if ("true" != disableAppleTargets) {
-        val iosTargets = listOf(
-            iosArm64(),
-            iosX64(),
-            iosSimulatorArm64()
-        )
-
-        iosTargets.forEach { target ->
-            val arch = when (target.name) {
-                "iosArm64" -> "arm64"
-                "iosX64" -> "x86_64-simulator"
-                "iosSimulatorArm64" -> "arm64-simulator"
-                else -> error("Unsupported target ${target.name}")
-            }
-
-            target.compilations.getByName("main") {
-                val longfellow by cinterops.creating {
-                    definitionFile.set(file("src/iosMain/cinterop/longfellow.def"))
-                    includeDirs("src/iosMain/cinterop")
-                }
-
-                target.binaries.all {
-                    linkerOpts("-L${projectDir}/src/iosMain/cinterop/libs/$arch")
-                    linkerOpts("-llongfellow_mdoc")
-                    linkerOpts("-Wl,-rpath,@executable_path/Frameworks")
-                    
-                    // Copy dylib to Frameworks folder for runtime
-                    val binary = this
-                    val taskName = "copyLongfellowDylib${target.name.replaceFirstChar { it.uppercase() }}${binary.name.replaceFirstChar { it.uppercase() }}"
-                    val copyTask = tasks.register(taskName, Copy::class) {
-                        from("${projectDir}/src/iosMain/cinterop/libs/$arch/liblongfellow_mdoc.dylib")
-                        into(File(binary.outputDirectory, "Frameworks"))
-                    }
-                    binary.linkTaskProvider.configure { finalizedBy(copyTask) }
-                }
-            }
-        }
+        iosArm64(); iosX64(); iosSimulatorArm64()
+        configureLongfellowIosLinking(isVckModule = true)
     }
     sourceSets {
         commonMain {

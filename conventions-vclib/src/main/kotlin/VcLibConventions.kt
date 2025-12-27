@@ -162,6 +162,57 @@ fun KotlinMultiplatformExtension.vckAndroid(minSdkOverride: Int? = null) {
 
 fun Project.hasAndroidSdk() = resolveAndroidSdk(this)?.let { it -> isValidAndroidSdk(it) } == true
 
+/**
+ * Configures iOS targets to link against the Longfellow native library.
+ * Needed for modules that depend on vck (which uses cinterop to call the native library).
+ * 
+ * @param isVckModule true for vck module itself (configures cinterop + uses projectDir),
+ * false for dependent modules (only linker opts, uses rootProject/vck path)
+ */
+fun KotlinMultiplatformExtension.configureLongfellowIosLinking(isVckModule: Boolean = false) {
+    val iosTargets = targets.filter { it.name.startsWith("ios") }
+    
+    iosTargets.forEach { target ->
+        val arch = when (target.name) {
+            "iosArm64" -> "arm64"
+            "iosX64" -> "x86_64-simulator"
+            "iosSimulatorArm64" -> "arm64-simulator"
+            else -> return@forEach // Skip unknown iOS targets
+        }
+        
+        val basePath = if (isVckModule) {
+            "${project.projectDir}/src/iosMain/cinterop/libs/$arch"
+        } else {
+            "${project.rootProject.projectDir}/vck/src/iosMain/cinterop/libs/$arch"
+        }
+        
+        val nativeTarget = target as org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+        
+        // Only the vck module needs the cinterop definition (it defines the Kotlin bindings)
+        if (isVckModule) {
+            nativeTarget.compilations.getByName("main").cinterops.create("longfellow") {
+                definitionFile.set(project.file("src/iosMain/cinterop/longfellow.def"))
+                includeDirs("src/iosMain/cinterop")
+            }
+        }
+        
+        nativeTarget.binaries.all {
+            linkerOpts("-L$basePath")
+            linkerOpts("-llongfellow_mdoc")
+            linkerOpts("-Wl,-rpath,@executable_path/Frameworks")
+            
+            // Copy dylib to Frameworks folder for runtime
+            val binary = this
+            val taskName = "copyLongfellowDylib${target.name.replaceFirstChar { it.uppercase() }}${binary.name.replaceFirstChar { it.uppercase() }}"
+            val copyTask = project.tasks.register(taskName, org.gradle.api.tasks.Copy::class.java) {
+                from("$basePath/liblongfellow_mdoc.dylib")
+                into(File(binary.outputDirectory, "Frameworks"))
+            }
+            binary.linkTaskProvider.configure { finalizedBy(copyTask) }
+        }
+    }
+}
+
 private fun resolveAndroidSdk(project: Project): File? {
     // Highest precedence: ANDROID_SDK_ROOT (preferred), then ANDROID_HOME (legacy)
     val env = System.getenv()
