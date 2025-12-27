@@ -20,7 +20,7 @@ kotlin {
     if ("true" != disableAppleTargets) {
         val iosTargets = listOf(
             iosArm64(),
-            // iosX64(),
+            iosX64(),
             iosSimulatorArm64()
         )
 

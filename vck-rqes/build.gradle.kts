@@ -18,7 +18,7 @@ kotlin {
     jvm()
     vckAndroid()
     if ("true" != disableAppleTargets) {
-        val iosTargets = listOf(iosArm64(), iosSimulatorArm64())
+        val iosTargets = listOf(iosArm64(), iosSimulatorArm64(), iosX64())
         
         // Link against the Longfellow native library (needed because vck uses it)
         iosTargets.forEach { target ->
