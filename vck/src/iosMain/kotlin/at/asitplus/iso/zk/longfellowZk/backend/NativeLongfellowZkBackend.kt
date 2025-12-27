@@ -28,18 +28,19 @@ import kotlinx.cinterop.usePinned
 actual object NativeLongfellowZkBackend : LongfellowZkBackend by CinteropLongfellowZkBackend
 
 object CinteropLongfellowZkBackend: LongfellowZkBackend {
-    private var initialized = false
+
+    private const val UNINIT_WARNING = "Cinterop library not initialized"
 
     @OptIn(ExperimentalForeignApi::class)
     override fun findZkSpec(systemName: String, circuitHash: String): KmmResult<ZkSpecHandle> {
-        require(initialized) { "Citnerop library not initialized" }
+        require(initialized) {  }
         val zkSpecPtr = find_zk_spec(systemName, circuitHash)
         return ZkSpecHandle.toZkSpecHandle(zkSpecPtr).toKmmResultIfNotNull()
     }
 
     @OptIn(ExperimentalUnsignedTypes::class, ExperimentalForeignApi::class)
     override fun generateCircuit(zkSpec: ZkSpecHandle): KmmResult<ByteArray> {
-        require(initialized) { "Citnerop library not initialized" }
+        require(initialized) { UNINIT_WARNING }
         val result = ScopedNativeBuffer { pointers ->
             generate_circuit(
                 zk_spec_version = zkSpec.ptr,
@@ -61,7 +62,7 @@ object CinteropLongfellowZkBackend: LongfellowZkBackend {
         requestedItems: List<RequestedItem>,
         zkSpec: ZkSpecHandle
     ): KmmResult<ByteArray> {
-        require(initialized) { "Citnerop library not initialized" }
+        require(initialized) { UNINIT_WARNING }
         transcript.usePinned { pinnedTranscript ->
             val transcriptPtr: CPointer<UByteVar> = pinnedTranscript.addressOf(0).reinterpret()
             circuit.usePinned { pinnedCircuit ->
@@ -103,7 +104,7 @@ object CinteropLongfellowZkBackend: LongfellowZkBackend {
         docType: String,
         zkSpec: ZkSpecHandle
     ): KmmResult<Boolean> {
-        require(initialized) { "Citnerop library not initialized" }
+        require(initialized) { UNINIT_WARNING }
         transcript.usePinned { pinnedTranscript ->
             val transcriptPtr: CPointer<UByteVar> = pinnedTranscript.addressOf(0).reinterpret()
             circuit.usePinned { pinnedCircuit ->
@@ -136,6 +137,7 @@ object CinteropLongfellowZkBackend: LongfellowZkBackend {
     }
 
     override fun initialize(): KmmResult<Unit> {
+        // Should always succeed, because library linking is configured at build time
         initialized = true
         return KmmResult.success(Unit)
     }

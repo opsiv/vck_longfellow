@@ -16,16 +16,17 @@ import com.sun.jna.Native
 actual object NativeLongfellowZkBackend : LongfellowZkBackend by JnaLongfellowZkBackend
 
 object JnaLongfellowZkBackend: LongfellowZkBackend {
+    private const val UNINIT_WARNING = "JNA longfellow library not initialized"
     private var initialized = false
     private lateinit var delegate: IJnaLibrary
 
     override fun findZkSpec(systemName: String, circuitHash: String): KmmResult<ZkSpecHandle> {
-        require(initialized) { "JNA library not initialized" }
+        require(initialized) { UNINIT_WARNING }
         return delegate.find_zk_spec(systemName, circuitHash)
             .toKmmResultIfNotNull()
     }
     override fun generateCircuit(zkSpec: ZkSpecHandle): KmmResult<ByteArray> {
-        require(initialized) { "JNA library not initialized" }
+        require(initialized) { UNINIT_WARNING }
         val result = ScopedNativeBuffer { pointers ->
             delegate.generate_circuit(
                 zkSpec,
@@ -46,7 +47,7 @@ object JnaLongfellowZkBackend: LongfellowZkBackend {
         requestedItems: List<RequestedItem>,
         zkSpec: ZkSpecHandle,
     ): KmmResult<ByteArray> {
-        require(initialized) { "JNA library not initialized" }
+        require(initialized) { UNINIT_WARNING }
         val attributeStructs = requestedItems.toStructArray()
         val result =  ScopedNativeBuffer { pointers ->
             delegate.run_mdoc_prover(
@@ -75,7 +76,7 @@ object JnaLongfellowZkBackend: LongfellowZkBackend {
         docType: String,
         zkSpec: ZkSpecHandle
     ): KmmResult<Boolean> {
-        require(initialized) { "JNA library not initialized" }
+        require(initialized) { UNINIT_WARNING }
         val attributeStructs = requestedItems.toStructArray()
         val intCode = delegate.run_mdoc_verifier(
             bcp = circuit, bcsz = circuit.size.toLong(),
