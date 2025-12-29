@@ -17,8 +17,9 @@ import at.asitplus.iso.zk.longfellowZk.resultCode.ProverResultCode
 import at.asitplus.iso.zk.longfellowZk.resultCode.VerifierResultCode
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.CValuesRef
+import kotlinx.cinterop.CVariable
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.UByteVar
+import kotlinx.cinterop.Pinned
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
@@ -26,14 +27,13 @@ import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
 
 actual object NativeLongfellowZkBackend : LongfellowZkBackend by CinteropLongfellowZkBackend
-
 object CinteropLongfellowZkBackend: LongfellowZkBackend {
-
+    private var initialized = false
     private const val UNINIT_WARNING = "Cinterop library not initialized"
 
     @OptIn(ExperimentalForeignApi::class)
     override fun findZkSpec(systemName: String, circuitHash: String): KmmResult<ZkSpecHandle> {
-        require(initialized) {  }
+        require(initialized) { UNINIT_WARNING }
         val zkSpecPtr = find_zk_spec(systemName, circuitHash)
         return ZkSpecHandle.toZkSpecHandle(zkSpecPtr).toKmmResultIfNotNull()
     }
@@ -63,21 +63,17 @@ object CinteropLongfellowZkBackend: LongfellowZkBackend {
         zkSpec: ZkSpecHandle
     ): KmmResult<ByteArray> {
         require(initialized) { UNINIT_WARNING }
-        transcript.usePinned { pinnedTranscript ->
-            val transcriptPtr: CPointer<UByteVar> = pinnedTranscript.addressOf(0).reinterpret()
-            circuit.usePinned { pinnedCircuit ->
-                val circuitPtr: CPointer<UByteVar> = pinnedCircuit.addressOf(0).reinterpret()
-                deviceResponse.usePinned  { pinnedDro ->
-                    val droPtr: CPointer<UByteVar> = pinnedDro.addressOf(0).reinterpret()
+        transcript.usePinned { pTranscript ->
+            circuit.usePinned { pCircuit ->
+                deviceResponse.usePinned  { pDeviceResponse ->
                     val result = ScopedNativeBuffer { pointers ->
                         memScoped {
                             val attrs: CValuesRef<RequestedAttribute>? = convertToNative(requestedItems)
                             run_mdoc_prover(
-                                bcp = circuitPtr, bcsz = circuit.size.toULong(),
-                                mdoc = droPtr, mdoc_len = deviceResponse.size.toULong(),
-                                pkx = publicKeyX,
-                                pky = publicKeyY,
-                                transcript = transcriptPtr, transcript.size.toULong(),
+                                bcp = pCircuit.asCPointer(), bcsz = pCircuit.get().size.toULong(),
+                                mdoc = pDeviceResponse.asCPointer(), mdoc_len = pDeviceResponse.get().size.toULong(),
+                                pkx = publicKeyX, pky = publicKeyY,
+                                transcript = pTranscript.asCPointer(), pTranscript.get().size.toULong(),
                                 attrs = attrs, attrs_len =  requestedItems.size.toULong(),
                                 now = timestamp,
                                 prf = pointers.byteArray.ptr, proof_len = pointers.byteArrayLength.ptr,
@@ -105,22 +101,19 @@ object CinteropLongfellowZkBackend: LongfellowZkBackend {
         zkSpec: ZkSpecHandle
     ): KmmResult<Boolean> {
         require(initialized) { UNINIT_WARNING }
-        transcript.usePinned { pinnedTranscript ->
-            val transcriptPtr: CPointer<UByteVar> = pinnedTranscript.addressOf(0).reinterpret()
-            circuit.usePinned { pinnedCircuit ->
-                val circuitPtr: CPointer<UByteVar> = pinnedCircuit.addressOf(0).reinterpret()
-                proof.usePinned { pinnedProof ->
-                    val proofPtr: CPointer<UByteVar> = pinnedProof.addressOf(0).reinterpret()
+        transcript.usePinned { pTranscript ->
+            circuit.usePinned { pCircuit ->
+                proof.usePinned { pProof ->
                     memScoped {
                         val attrs: CValuesRef<RequestedAttribute>? = convertToNative(requestedItems)
                         val intCode = run_mdoc_verifier(
-                            bcp = circuitPtr, bcsz = circuit.size.toULong(),
+                            bcp = pCircuit.asCPointer(), bcsz = pCircuit.get().size.toULong(),
                             pkx = publicKeyX,
                             pky = publicKeyY,
-                            transcript = transcriptPtr, transcript.size.toULong(),
+                            transcript = pTranscript.asCPointer(), pTranscript.get().size.toULong(),
                             attrs = attrs, requestedItems.size.toULong(),
                             now = timestamp,
-                            zkproof = proofPtr, proof_len = proof.size.toULong(),
+                            zkproof = pProof.asCPointer(), proof_len = pProof.get().size.toULong(),
                             docType = docType,
                             zk_spec_version = zkSpec.ptr
                         ).toInt()
@@ -142,4 +135,8 @@ object CinteropLongfellowZkBackend: LongfellowZkBackend {
         return KmmResult.success(Unit)
     }
 
+    @OptIn(ExperimentalForeignApi::class)
+    private fun <T : CVariable> Pinned<ByteArray>.asCPointer(): CPointer<T> = addressOf(0).reinterpret()
+
 }
+

@@ -13,8 +13,6 @@ import io.github.aakira.napier.Napier
 
 
 object IsoMdocZkProofRegistry {
-    // TODO: remove check with IsoMdocZkProofProvider initialized
-
     private val factories = LinkedHashSet<IsoMdocZkProofFactory>()
 
     init {
