@@ -32,8 +32,8 @@ kotlin {
         }
 
         androidJvmMain.dependencies {
-            implementation("net.java.dev.jna:jna:5.18.1")
-            implementation("net.java.dev.jna:jna-platform:5.18.1")
+            implementation("net.java.dev.jna:jna:${VcLibVersions.jna}")
+            implementation("net.java.dev.jna:jna-platform:${VcLibVersions.jna}")
         }
 
         commonTest {
