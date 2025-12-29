@@ -3,9 +3,7 @@ package at.asitplus.iso.zk.longfellowZk
 import at.asitplus.iso.ZkSignedItemSerializer
 import io.github.aakira.napier.Napier
 
-// TODO: Convert every Map<String, ZkSignedList> deterministically into an ordered list of RequestedItem in common code.
-//  Then use the RequestedItems List to convert into the native types, i.e. define an expect function that does the
-//  conversion to a typealias
+
 class RequestedItem(
     namespace: String,
     elementIdentifier: String,
@@ -39,6 +37,7 @@ class RequestedItem(
 
 
     companion object {
+        // LongfellowZk specific values
         const val NAMESPACE_SIZE = 64
         const val ELEMENT_IDENTIFIER_SIZE = 32
         const val CBOR_ELEMENT_VALUE_SIZE = 64

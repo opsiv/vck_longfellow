@@ -9,7 +9,7 @@ import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.readByteArray
 
 
-// TODO: make a better file-based or DB-based provider
+// TODO: Create a more solid file-based or DB-based provider with prefilled circuits
 class FileBasedPersistentHandleAndCircuitProvider(
     private val delegate: HandleAndCircuitProvider,
     private val baseDir: Path
