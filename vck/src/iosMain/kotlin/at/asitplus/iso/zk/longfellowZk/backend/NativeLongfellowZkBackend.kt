@@ -4,7 +4,6 @@ import at.asitplus.KmmResult
 import at.asitplus.iso.zk.longfellowZk.RequestedItem
 import at.asitplus.iso.zk.longfellowZk.ZkSpecHandle
 import at.asitplus.iso.zk.longfellowZk.cinterop.RequestedAttribute
-import at.asitplus.iso.zk.longfellowZk.cinterop.convertToNative
 import at.asitplus.iso.zk.longfellowZk.cinterop.find_zk_spec
 import at.asitplus.iso.zk.longfellowZk.cinterop.generate_circuit
 import at.asitplus.iso.zk.longfellowZk.cinterop.run_mdoc_prover
@@ -15,15 +14,10 @@ import at.asitplus.iso.zk.longfellowZk.resultCode.NativeResult
 import at.asitplus.iso.zk.longfellowZk.resultCode.NativeResultException
 import at.asitplus.iso.zk.longfellowZk.resultCode.ProverResultCode
 import at.asitplus.iso.zk.longfellowZk.resultCode.VerifierResultCode
-import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.CValuesRef
-import kotlinx.cinterop.CVariable
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.Pinned
-import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
-import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
 
 actual object NativeLongfellowZkBackend : LongfellowZkBackend by CinteropLongfellowZkBackend
@@ -134,9 +128,5 @@ object CinteropLongfellowZkBackend: LongfellowZkBackend {
         initialized = true
         return KmmResult.success(Unit)
     }
-
-    @OptIn(ExperimentalForeignApi::class)
-    private fun <T : CVariable> Pinned<ByteArray>.asCPointer(): CPointer<T> = addressOf(0).reinterpret()
-
 }
 

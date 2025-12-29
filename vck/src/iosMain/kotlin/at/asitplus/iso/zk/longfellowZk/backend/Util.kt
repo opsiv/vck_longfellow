@@ -1,15 +1,17 @@
 @file:Suppress("PropertyName", "FunctionName", "LocalVariableName")
 
-package at.asitplus.iso.zk.longfellowZk.cinterop
+package at.asitplus.iso.zk.longfellowZk.backend
 
 
 import at.asitplus.iso.zk.longfellowZk.RequestedItem
+import at.asitplus.iso.zk.longfellowZk.cinterop.RequestedAttribute
 import kotlinx.cinterop.*
+import kotlinx.cinterop.get
 import platform.posix.memcpy
 
 
 @OptIn(ExperimentalUnsignedTypes::class, ExperimentalForeignApi::class)
-fun MemScope.convertToNative(
+internal fun MemScope.convertToNative(
     requestedItems: List<RequestedItem>
 ): CValuesRef<RequestedAttribute>? {
     if (requestedItems.isEmpty()) return null
@@ -34,3 +36,7 @@ fun MemScope.convertToNative(
 
     return arr
 }
+
+@OptIn(ExperimentalForeignApi::class)
+internal fun <T : CVariable> Pinned<ByteArray>.asCPointer(): CPointer<T> = addressOf(0).reinterpret()
+
